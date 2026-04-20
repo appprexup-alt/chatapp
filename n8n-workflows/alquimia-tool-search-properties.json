@@ -1,0 +1,89 @@
+{
+    "name": "Tools - Search Properties v3",
+    "nodes": [
+        {
+            "parameters": {},
+            "id": "trigger",
+            "name": "Execute Workflow Trigger",
+            "type": "n8n-nodes-base.executeWorkflowTrigger",
+            "typeVersion": 1,
+            "position": [
+                250,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://byoalaoqyedwxpcugfhg.supabase.co/rest/v1/rpc/search_properties",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "apikey",
+                            "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ5b2FsYW9xeWVkd3hwY3VnZmhnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk4Njc1OTUsImV4cCI6MjA4NTQ0MzU5NX0.fi63bqEDlFHkG88clPZPY20JFQ8idBLP_mAD4W2BFO8"
+                        },
+                        {
+                            "name": "Authorization",
+                            "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ5b2FsYW9xeWVkd3hwY3VnZmhnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk4Njc1OTUsImV4cCI6MjA4NTQ0MzU5NX0.fi63bqEDlFHkG88clPZPY20JFQ8idBLP_mAD4W2BFO8"
+                        },
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={\n  \"p_query\": \"{{ $json.query || '' }}\",\n  \"p_min_price\": {{ $json.min_price || 0 }},\n  \"p_max_price\": {{ $json.max_price || 1000000 }}\n}"
+            },
+            "id": "search-db",
+            "name": "Search DB",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                450,
+                300
+            ],
+            "alwaysOutputData": true,
+            "continueOnFail": true
+        },
+        {
+            "parameters": {
+                "jsCode": "const items = $input.all();\nlet result = \"No se encontraron propiedades.\";\n\nif (items.length > 0) {\n  if (items[0].json.error) {\n    result = \"Error en la búsqueda: \" + JSON.stringify(items[0].json);\n  } else if (Array.isArray(items[0].json) && items[0].json.length > 0) {\n    // Filter valid items\n    const valid = items[0].json.filter(i => i && i.lot_number);\n    if (valid.length > 0) {\n        result = JSON.stringify(valid);\n    }\n  } else if (items[0].json.lot_number) {\n      // Single item case\n      result = JSON.stringify([items[0].json]);\n  }\n}\n\n// IMPORTANT: Must return an array of items with { json: ... }\nreturn [\n  {\n    json: {\n      result: result\n    }\n  }\n];"
+            },
+            "id": "format",
+            "name": "Format Output",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                650,
+                300
+            ]
+        }
+    ],
+    "connections": {
+        "Execute Workflow Trigger": {
+            "main": [
+                [
+                    {
+                        "node": "Search DB",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Search DB": {
+            "main": [
+                [
+                    {
+                        "node": "Format Output",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    }
+}

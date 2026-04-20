@@ -1,0 +1,256 @@
+{
+    "name": "Alquimia AI v4 - Message Stacking",
+    "nodes": [
+        {
+            "parameters": {
+                "httpMethod": "POST",
+                "path": "alquimia-v4",
+                "options": {}
+            },
+            "id": "webhook-main",
+            "name": "Webhook",
+            "type": "n8n-nodes-base.webhook",
+            "typeVersion": 2,
+            "position": [
+                200,
+                300
+            ],
+            "webhookId": "alquimia-v4"
+        },
+        {
+            "parameters": {
+                "jsCode": "const input = $input.first().json;\nconst body = input.body || input;\nconst data = body.data || {};\nconst key = data.key || {};\nconst msg = data.message || {};\n\nconst jid = key.remoteJid || '';\nconst phone = jid.split('@')[0] || 'unknown';\nconst name = data.pushName || 'Cliente';\n\nlet content = msg.conversation || msg.extendedTextMessage?.text || '';\n\nif (key.fromMe === true || jid.includes('@g.us') || !content) {\n  return { skip: true };\n}\n\nreturn {\n  skip: false,\n  phone,\n  name,\n  content,\n  instance: 'prexup',\n  timestamp: Date.now()\n};"
+            },
+            "id": "parse-message",
+            "name": "Parse Message",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                400,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "conditions": {
+                    "boolean": [
+                        {
+                            "value1": "={{ $json.skip }}",
+                            "value2": false
+                        }
+                    ]
+                }
+            },
+            "id": "valid-check",
+            "name": "Valid?",
+            "type": "n8n-nodes-base.if",
+            "typeVersion": 1,
+            "position": [
+                600,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://byoalaoqyedwxpcugfhg.supabase.co/rest/v1/rpc/stack_message",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "apikey",
+                            "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ5b2FsYW9xeWVkd3hwY3VnZmhnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk4Njc1OTUsImV4cCI6MjA4NTQ0MzU5NX0.fi63bqEDlFHkG88clPZPY20JFQ8idBLP_mAD4W2BFO8"
+                        },
+                        {
+                            "name": "Authorization",
+                            "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ5b2FsYW9xeWVkd3hwY3VnZmhnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk4Njc1OTUsImV4cCI6MjA4NTQ0MzU5NX0.fi63bqEDlFHkG88clPZPY20JFQ8idBLP_mAD4W2BFO8"
+                        },
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={\n  \"p_phone\": \"{{ $json.phone }}\",\n  \"p_content\": \"{{ $json.content }}\",\n  \"p_name\": \"{{ $json.name }}\",\n  \"p_org_id\": \"00000000-0000-0000-0000-000000000000\"\n}"
+            },
+            "id": "stack-message",
+            "name": "Stack Message",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                800,
+                300
+            ],
+            "alwaysOutputData": true
+        },
+        {
+            "parameters": {
+                "jsCode": "const result = $input.first().json;\nconst msgData = $('Parse Message').item.json;\n\n// Parse result if it's a string\nlet data = result;\nif (typeof result === 'string') {\n  try {\n    data = JSON.parse(result);\n  } catch(e) {\n    data = {};\n  }\n}\n\nreturn {\n  sessionId: data.session_id || null,\n  phone: data.phone || msgData.phone,\n  leadId: data.lead_id || null,\n  messageCount: data.message_count || 1,\n  isNewSession: data.is_new_session || false,\n  shouldTriggerTimer: data.should_trigger_timer || false,\n  secondsRemaining: data.seconds_remaining || 100,\n  instance: msgData.instance\n};"
+            },
+            "id": "process-stack-result",
+            "name": "Process Stack Result",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                1000,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "conditions": {
+                    "boolean": [
+                        {
+                            "value1": "={{ $json.shouldTriggerTimer }}",
+                            "value2": true
+                        }
+                    ]
+                }
+            },
+            "id": "new-session-check",
+            "name": "New Session?",
+            "type": "n8n-nodes-base.if",
+            "typeVersion": 1,
+            "position": [
+                1200,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "={{ $env.WEBHOOK_URL || 'https://n8n.kywia.com' }}/webhook/alquimia-v4-process",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={\n  \"session_id\": \"{{ $json.sessionId }}\",\n  \"phone\": \"{{ $json.phone }}\",\n  \"delay_seconds\": {{ $json.secondsRemaining }},\n  \"instance\": \"{{ $json.instance }}\"\n}",
+                "options": {
+                    "timeout": 5000
+                }
+            },
+            "id": "trigger-timer",
+            "name": "Trigger Timer Workflow",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                1400,
+                200
+            ],
+            "alwaysOutputData": true,
+            "continueOnFail": true
+        },
+        {
+            "parameters": {
+                "jsCode": "// Message stacked successfully\nconst data = $('Process Stack Result').item.json;\nreturn {\n  status: 'stacked',\n  sessionId: data.sessionId,\n  messageCount: data.messageCount,\n  isNewSession: data.isNewSession,\n  secondsRemaining: data.secondsRemaining\n};"
+            },
+            "id": "stacked-response",
+            "name": "Stacked Response",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                1600,
+                300
+            ]
+        }
+    ],
+    "connections": {
+        "Webhook": {
+            "main": [
+                [
+                    {
+                        "node": "Parse Message",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Parse Message": {
+            "main": [
+                [
+                    {
+                        "node": "Valid?",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Valid?": {
+            "main": [
+                [
+                    {
+                        "node": "Stack Message",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                []
+            ]
+        },
+        "Stack Message": {
+            "main": [
+                [
+                    {
+                        "node": "Process Stack Result",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Process Stack Result": {
+            "main": [
+                [
+                    {
+                        "node": "New Session?",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "New Session?": {
+            "main": [
+                [
+                    {
+                        "node": "Trigger Timer Workflow",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "Stacked Response",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Trigger Timer Workflow": {
+            "main": [
+                [
+                    {
+                        "node": "Stacked Response",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    },
+    "settings": {
+        "executionOrder": "v1"
+    }
+}

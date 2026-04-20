@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="es" class="dark" style="scroll-behavior: smooth;">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PREX</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@100..900&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Outfit', 'sans-serif'],
+          },
+          fontSize: {
+            'main-title': ['28px', { lineHeight: '1.2', fontWeight: '800' }],
+            'subtitle': ['20px', { lineHeight: '1.4', fontWeight: '600' }],
+            'card-header': ['16px', { lineHeight: '1.4', fontWeight: '700' }],
+            'body-main': ['14px', { lineHeight: '1.6', fontWeight: '400' }],
+            'body-secondary': ['12px', { lineHeight: '1.5', fontWeight: '500' }],
+          },
+          colors: {
+            background: 'var(--background)',
+            surface: 'var(--surface)',
+            primary: 'var(--primary)',
+            secondary: 'var(--secondary)',
+            success: '#10B981',
+            danger: '#EF4444',
+            warning: '#F59E0B',
+            info: '#3B82F6',
+
+            'card-bg': 'var(--card-bg)',
+            'input-bg': 'var(--input-bg)',
+            'border-color': 'var(--border-color)', /* Opacity handled in color definition or usage */
+            'text-main': 'var(--text-main)',
+            'text-muted': 'var(--text-muted)',
+            'electric-accent': 'var(--electric-accent)',
+          },
+          boxShadow: {
+            'glow': '0 0 15px var(--primary-glow)',
+            'card': '0 4px 6px -1px var(--shadow-color), 0 2px 4px -1px var(--shadow-color)',
+          },
+          dropShadow: {
+            'glow': '0 0 10px var(--primary-glow)',
+            'electric': '0 0 8px var(--electric-accent)',
+          },
+          animation: {
+            'slide-in-left': 'slideInLeft 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+            'fade-in': 'fadeIn 0.3s ease-out forwards',
+            'bounce-in': 'bounceIn 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55) forwards',
+            'pulse-glow': 'pulseGlow 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+          },
+          keyframes: {
+            slideInLeft: {
+              '0%': { transform: 'translateX(-20px)', opacity: '0' },
+              '100%': { transform: 'translateX(0)', opacity: '1' },
+            },
+            fadeIn: {
+              '0%': { opacity: '0' },
+              '100%': { opacity: '1' },
+            },
+            bounceIn: {
+              '0%': { opacity: '0', transform: 'scale(0.95)' },
+              '50%': { opacity: '1', transform: 'scale(1.02)' },
+              '100%': { transform: 'scale(1)' },
+            },
+            pulseGlow: {
+              '0%, 100%': { opacity: '1', filter: 'brightness(1)' },
+              '50%': { opacity: '0.8', filter: 'brightness(1.2)' },
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    :root {
+      /* Light Mode: Clean, Sharp, High Contrast */
+      --background: #F8FAFC;
+      /* Slate 50 - Ultra clean white-ish */
+      --surface: #FFFFFF;
+      /* Pure White - Content Pop */
+      --card-bg: #FFFFFF;
+      --input-bg: #F1F5F9;
+      --border-color: #E2E8F0;
+      /* Slate 200 - Subtle Borders */
+      --text-main: #020617;
+      /* Slate 950 - Ink Black */
+      --text-muted: #475569;
+      /* Slate 600 - Readable Muted */
+
+      --primary: #db2adf;
+      /* Brand Purple */
+      --primary-hover: #b515bc;
+      --primary-glow: rgba(219, 42, 223, 0.3);
+
+      --secondary: #8B5CF6;
+      /* Violet 500 */
+      --electric-accent: #db2adf;
+      --shadow-color: rgba(0, 0, 0, 0.05);
+
+      --scrollbar-thumb: #CBD5E1;
+      --scrollbar-track: transparent;
+    }
+
+    .dark {
+      /* Dark Mode: deep, "Premium Professional", "Electric" Accents */
+      --background: #000000;
+      /* Pure Black for OLED depth or very deep gray */
+      --surface: #09090B;
+      /* Zinc 950 */
+      --card-bg: #09090B;
+      --input-bg: #18181B;
+      /* Zinc 900 */
+      --border-color: #27272A;
+      /* Zinc 800 */
+      --text-main: #D4D4D8;
+      /* Zinc 300 - Soft Light Gray (Reduced Glare) */
+      --text-muted: #71717A;
+      /* Zinc 400ish */
+
+      /* Electric Accents */
+      --primary: #db2adf;
+      /* Brand Purple - Bright/Electric */
+      --primary-hover: #e656e9;
+      --primary-glow: rgba(219, 42, 223, 0.5);
+
+      --secondary: #A78BFA;
+      --electric-accent: #e656e9;
+      /* Electric Pop */
+      --shadow-color: rgba(0, 0, 0, 0.5);
+
+      --scrollbar-thumb: #3F3F46;
+      --scrollbar-track: #09090B;
+    }
+
+    /* Global Dark Mode Select Styling */
+    .dark select, 
+    .dark option {
+      background-color: #18181B !important;
+      color: #D4D4D8 !important;
+      border-color: #27272A !important;
+    }
+
+    body {
+      font-family: 'Outfit', sans-serif;
+      background-color: var(--background);
+      background-image:
+        radial-gradient(at 0% 0%, rgba(219, 42, 223, 0.015) 0%, transparent 50%),
+        radial-gradient(at 100% 0%, rgba(139, 92, 246, 0.01) 0%, transparent 50%);
+      background-attachment: fixed;
+      color: var(--text-main);
+      transition: background-color 0.4s cubic-bezier(0.16, 1, 0.3, 1), color 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+      overscroll-behavior-y: none;
+      overflow-x: hidden;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    .bg-mesh {
+      background-image:
+        radial-gradient(at 0% 0%, rgba(219, 42, 223, 0.015) 0%, transparent 50%),
+        radial-gradient(at 100% 0%, rgba(139, 92, 246, 0.01) 0%, transparent 50%);
+      background-attachment: fixed;
+    }
+
+    .dark .bg-mesh {
+      background-image:
+        radial-gradient(at 0% 0%, rgba(219, 42, 223, 0.08) 0%, transparent 50%),
+        radial-gradient(at 100% 100%, rgba(139, 92, 246, 0.05) 0%, transparent 50%);
+    }
+
+    /* Modern & Slim Scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: var(--scrollbar-track);
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: var(--scrollbar-thumb);
+      border-radius: 9999px;
+      border: 2px solid transparent;
+      /* Creates padding effect */
+      background-clip: content-box;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background-color: var(--text-muted);
+    }
+
+    .dark ::-webkit-calendar-picker-indicator {
+      filter: invert(1) brightness(1.2);
+      cursor: pointer;
+    }
+
+    #root {
+      height: 100%;
+      isolation: isolate;
+    }
+
+    .modal-active {
+      overflow: hidden;
+    }
+
+    @media (min-width: 768px) {
+      .md-force-hidden {
+        display: none !important;
+      }
+    }
+  </style>
+
+</head>
+
+<body>
+  <div id="root"></div>
+  <script type="module" src="/index.tsx"></script>
+</body>
+
+</html>

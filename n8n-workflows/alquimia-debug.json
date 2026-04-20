@@ -1,0 +1,50 @@
+{
+    "name": "Alquimia Debug",
+    "nodes": [
+        {
+            "parameters": {
+                "httpMethod": "POST",
+                "path": "alquimia-test",
+                "options": {}
+            },
+            "id": "webhook",
+            "name": "Webhook",
+            "type": "n8n-nodes-base.webhook",
+            "typeVersion": 2,
+            "position": [
+                200,
+                300
+            ],
+            "webhookId": "alquimia-test"
+        },
+        {
+            "parameters": {
+                "jsCode": "// Solo mostrar todo lo que llega sin procesar\nconst raw = $input.first().json;\n\n// Devolver todo para ver en la UI\nreturn {\n  raw_body: JSON.stringify(raw, null, 2),\n  keys: Object.keys(raw),\n  event: raw.event || 'NO_EVENT',\n  instance: raw.instance || raw.instanceName || 'NO_INSTANCE',\n  has_data: !!raw.data,\n  data_keys: raw.data ? Object.keys(raw.data) : [],\n  sender: raw.sender || raw.data?.pushName || 'UNKNOWN'\n};"
+            },
+            "id": "debug",
+            "name": "Debug",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                400,
+                300
+            ]
+        }
+    ],
+    "connections": {
+        "Webhook": {
+            "main": [
+                [
+                    {
+                        "node": "Debug",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    },
+    "settings": {
+        "executionOrder": "v1"
+    }
+}

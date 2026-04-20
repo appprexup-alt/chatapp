@@ -1,0 +1,11 @@
+node_modules
+.env
+dist
+.DS_Store
+*.log
+whatsapp_auth
+whatsapp-server/node_modules
+whatsapp-server/auth_info_baileys
+whatsapp-server/.env
+migrate_vps.js
+run_migration_direct.js

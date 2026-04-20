@@ -1,0 +1,82 @@
+{
+    "name": "Tools - Assign Agent v1",
+    "nodes": [
+        {
+            "parameters": {},
+            "id": "trigger",
+            "name": "Execute Workflow Trigger",
+            "type": "n8n-nodes-base.executeWorkflowTrigger",
+            "typeVersion": 1,
+            "position": [
+                250,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "method": "GET",
+                "url": "=https://byoalaoqyedwxpcugfhg.supabase.co/rest/v1/users?organization_id=eq.00000000-0000-0000-0000-000000000000&status=eq.active&select=id,name,email,role",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "apikey",
+                            "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ5b2FsYW9xeWVkd3hwY3VnZmhnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk4Njc1OTUsImV4cCI6MjA4NTQ0MzU5NX0.fi63bqEDlFHkG88clPZPY20JFQ8idBLP_mAD4W2BFO8"
+                        },
+                        {
+                            "name": "Authorization",
+                            "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ5b2FsYW9xeWVkd3hwY3VnZmhnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk4Njc1OTUsImV4cCI6MjA4NTQ0MzU5NX0.fi63bqEDlFHkG88clPZPY20JFQ8idBLP_mAD4W2BFO8"
+                        }
+                    ]
+                }
+            },
+            "id": "get-agents",
+            "name": "Get Active Agents",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                450,
+                300
+            ],
+            "alwaysOutputData": true,
+            "continueOnFail": true
+        },
+        {
+            "parameters": {
+                "jsCode": "const items = $input.all();\nconst input = $('Execute Workflow Trigger').first().json;\nconst excludeAgentId = input.exclude_agent_id || null;\nlet result = \"No se encontraron agentes activos.\";\n\ntry {\n  let agents = [];\n\n  if (items.length > 0) {\n    const firstItem = items[0].json;\n    if (Array.isArray(firstItem)) {\n      agents = firstItem.filter(a => a && a.id);\n    } else if (firstItem && firstItem.id) {\n      agents = items.map(item => item.json).filter(a => a && a.id);\n    }\n  }\n\n  if (agents.length === 0) {\n    return [{ json: { result } }];\n  }\n\n  // Exclude the previously assigned agent if provided\n  let available = agents;\n  if (excludeAgentId) {\n    available = agents.filter(a => a.id !== excludeAgentId);\n    // If all agents were excluded, fall back to all agents\n    if (available.length === 0) {\n      available = agents;\n    }\n  }\n\n  // Select random agent\n  const randomIndex = Math.floor(Math.random() * available.length);\n  const selected = available[randomIndex];\n\n  result = JSON.stringify({\n    agent_id: selected.id,\n    agent_name: selected.name || 'Agente',\n    agent_email: selected.email || '',\n    agent_role: selected.role || 'agent',\n    total_active_agents: agents.length\n  });\n} catch (e) {\n  result = \"Error al asignar agente: \" + e.message;\n}\n\nreturn [\n  {\n    json: {\n      result: result\n    }\n  }\n];"
+            },
+            "id": "select-random",
+            "name": "Select Random Agent",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                650,
+                300
+            ]
+        }
+    ],
+    "connections": {
+        "Execute Workflow Trigger": {
+            "main": [
+                [
+                    {
+                        "node": "Get Active Agents",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Get Active Agents": {
+            "main": [
+                [
+                    {
+                        "node": "Select Random Agent",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    }
+}

@@ -1,0 +1,704 @@
+{
+    "name": "Alquimia AI Chatbot Final",
+    "nodes": [
+        {
+            "parameters": {
+                "httpMethod": "POST",
+                "path": "alquimia-test",
+                "options": {},
+                "responseMode": "responseNode"
+            },
+            "id": "webhook",
+            "name": "Webhook",
+            "type": "n8n-nodes-base.webhook",
+            "typeVersion": 2,
+            "position": [
+                100,
+                300
+            ],
+            "webhookId": "alquimia-test"
+        },
+        {
+            "parameters": {
+                "respondWith": "json",
+                "responseBody": "={\"ok\":true}"
+            },
+            "id": "respond",
+            "name": "Respond OK",
+            "type": "n8n-nodes-base.respondToWebhook",
+            "typeVersion": 1,
+            "position": [
+                280,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "const body = $input.first().json;\n\n// Aceptar cualquier evento de mensaje\nif (!body.event || !body.event.includes('message')) {\n  if (!body.data) return { skip: true };\n}\n\nconst data = body.data || body;\nconst key = data.key || {};\nlet jid = key.remoteJid || data.remoteJid || '';\n\n// Saltar grupos, broadcasts y mensajes propios\nif (!jid || jid.includes('@g.us') || jid === 'status@broadcast' || key.fromMe) {\n  return { skip: true };\n}\n\nconst phone = jid.split('@')[0];\nconst msg = data.message || {};\nlet content = msg.conversation || msg.extendedTextMessage?.text || data.body || '';\nlet isAudio = !!msg.audioMessage;\n\nif (isAudio) content = '[Audio recibido]';\nif (!content && msg.imageMessage) content = msg.imageMessage.caption || '[Imagen]';\nif (!content) content = '[Mensaje]';\n\nconst instance = body.instance || body.instanceName || 'default';\n\nreturn {\n  skip: false,\n  phone,\n  content,\n  isAudio,\n  instance,\n  pushName: data.pushName || 'Cliente',\n  timestamp: Date.now()\n};"
+            },
+            "id": "parse",
+            "name": "Parse Message",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                460,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "conditions": {
+                    "boolean": [
+                        {
+                            "value1": "={{ $json.skip }}",
+                            "value2": false
+                        }
+                    ]
+                }
+            },
+            "id": "valid-check",
+            "name": "Valid?",
+            "type": "n8n-nodes-base.if",
+            "typeVersion": 1,
+            "position": [
+                640,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "method": "GET",
+                "url": "=https://byoalaoqyedwxpcugfhg.supabase.co/rest/v1/leads?phone=ilike.*{{ $json.phone.slice(-8) }}*&organization_id=eq.00000000-0000-0000-0000-000000000000&select=id,name,chatbot_active",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "apikey",
+                            "value": "YOUR_SUPABASE_ANON_KEY"
+                        },
+                        {
+                            "name": "Authorization",
+                            "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ5b2FsYW9xeWVkd3hwY3VnZmhnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk4Njc1OTUsImV4cCI6MjA4NTQ0MzU5NX0.fi63bqEDlFHkG88clPZPY20JFQ8idBLP_mAD4W2BFO8"
+                        }
+                    ]
+                },
+                "options": {
+                    "timeout": 5000
+                }
+            },
+            "id": "find-lead",
+            "name": "Find Lead",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                840,
+                200
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "const leads = $input.first().json;\nconst msgData = $('Parse Message').item.json;\nconst lead = Array.isArray(leads) && leads.length > 0 ? leads[0] : null;\n\nreturn {\n  ...msgData,\n  leadId: lead?.id || null,\n  leadExists: !!lead,\n  chatbotActive: lead?.chatbot_active ?? true\n};"
+            },
+            "id": "process-lead",
+            "name": "Process Lead",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                1040,
+                200
+            ]
+        },
+        {
+            "parameters": {
+                "conditions": {
+                    "boolean": [
+                        {
+                            "value1": "={{ $json.leadExists }}",
+                            "value2": true
+                        }
+                    ]
+                }
+            },
+            "id": "lead-exists",
+            "name": "Lead Exists?",
+            "type": "n8n-nodes-base.if",
+            "typeVersion": 1,
+            "position": [
+                1240,
+                200
+            ]
+        },
+        {
+            "parameters": {
+                "method": "GET",
+                "url": "https://byoalaoqyedwxpcugfhg.supabase.co/rest/v1/users?organization_id=eq.00000000-0000-0000-0000-000000000000&status=eq.active&select=id",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "apikey",
+                            "value": "YOUR_SUPABASE_ANON_KEY"
+                        },
+                        {
+                            "name": "Authorization",
+                            "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ5b2FsYW9xeWVkd3hwY3VnZmhnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk4Njc1OTUsImV4cCI6MjA4NTQ0MzU5NX0.fi63bqEDlFHkG88clPZPY20JFQ8idBLP_mAD4W2BFO8"
+                        }
+                    ]
+                }
+            },
+            "id": "get-agents",
+            "name": "Get Agents",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                1440,
+                350
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "const agents = $input.first().json;\nconst msgData = $('Process Lead').item.json;\nlet assignedTo = null;\n\nif (Array.isArray(agents) && agents.length > 0) {\n  const idx = Math.floor(Math.random() * agents.length);\n  assignedTo = agents[idx].id;\n}\n\nreturn { ...msgData, assignedTo };"
+            },
+            "id": "select-agent",
+            "name": "Select Agent",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                1640,
+                350
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://byoalaoqyedwxpcugfhg.supabase.co/rest/v1/leads",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "apikey",
+                            "value": "YOUR_SUPABASE_ANON_KEY"
+                        },
+                        {
+                            "name": "Authorization",
+                            "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ5b2FsYW9xeWVkd3hwY3VnZmhnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk4Njc1OTUsImV4cCI6MjA4NTQ0MzU5NX0.fi63bqEDlFHkG88clPZPY20JFQ8idBLP_mAD4W2BFO8"
+                        },
+                        {
+                            "name": "Prefer",
+                            "value": "return=representation"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={\n  \"organization_id\": \"00000000-0000-0000-0000-000000000000\",\n  \"name\": \"{{ $json.pushName }}\",\n  \"phone\": \"{{ $json.phone }}\",\n  \"status\": \"33ff4439-f812-4bec-8c53-ae6133a1b878\",\n  \"source\": \"WhatsApp\",\n  \"chatbot_active\": true,\n  \"assigned_to\": {{ $json.assignedTo ? '\"' + $json.assignedTo + '\"' : 'null' }}\n}"
+            },
+            "id": "create-lead",
+            "name": "Create Lead",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                1840,
+                350
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "const result = $input.first().json;\nconst msgData = $('Select Agent').item.json;\nconst leadId = Array.isArray(result) ? result[0]?.id : result?.id;\n\nreturn {\n  ...msgData,\n  leadId,\n  leadExists: true,\n  chatbotActive: true,\n  isNewLead: true\n};"
+            },
+            "id": "set-lead-id",
+            "name": "Set Lead ID",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                2040,
+                350
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://byoalaoqyedwxpcugfhg.supabase.co/rest/v1/messages",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "apikey",
+                            "value": "YOUR_SUPABASE_ANON_KEY"
+                        },
+                        {
+                            "name": "Authorization",
+                            "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ5b2FsYW9xeWVkd3hwY3VnZmhnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk4Njc1OTUsImV4cCI6MjA4NTQ0MzU5NX0.fi63bqEDlFHkG88clPZPY20JFQ8idBLP_mAD4W2BFO8"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={\n  \"organization_id\": \"00000000-0000-0000-0000-000000000000\",\n  \"lead_id\": \"{{ $json.leadId }}\",\n  \"content\": {{ JSON.stringify($json.content) }},\n  \"sender\": \"client\"\n}"
+            },
+            "id": "save-msg",
+            "name": "Save Message",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                1440,
+                100
+            ]
+        },
+        {
+            "parameters": {
+                "amount": 8,
+                "unit": "seconds"
+            },
+            "id": "wait",
+            "name": "Wait 8s",
+            "type": "n8n-nodes-base.wait",
+            "typeVersion": 1.1,
+            "position": [
+                1640,
+                100
+            ]
+        },
+        {
+            "parameters": {
+                "method": "GET",
+                "url": "https://byoalaoqyedwxpcugfhg.supabase.co/rest/v1/properties?organization_id=eq.00000000-0000-0000-0000-000000000000&status=eq.Disponible",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "apikey",
+                            "value": "YOUR_SUPABASE_ANON_KEY"
+                        },
+                        {
+                            "name": "Authorization",
+                            "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ5b2FsYW9xeWVkd3hwY3VnZmhnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk4Njc1OTUsImV4cCI6MjA4NTQ0MzU5NX0.fi63bqEDlFHkG88clPZPY20JFQ8idBLP_mAD4W2BFO8"
+                        }
+                    ]
+                }
+            },
+            "id": "get-props",
+            "name": "Get Properties",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                1840,
+                100
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "const properties = $input.first().json;\nconst ctx = $('Process Lead').item.json;\n\nconst props = Array.isArray(properties) \n  ? properties.map(p => `${p.lot_number}: ${p.area}m², $${p.price} USD - ${(p.features||[]).join(', ')}`).join('\\n')\n  : '';\n\nreturn {\n  leadId: ctx.leadId,\n  phone: ctx.phone,\n  instance: ctx.instance,\n  properties: props,\n  currentMessage: ctx.content\n};"
+            },
+            "id": "prepare-ctx",
+            "name": "Prepare Context",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                2040,
+                100
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://api.openai.com/v1/chat/completions",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        },
+                        {
+                            "name": "Authorization",
+                            "value": "Bearer YOUR_OPENAI_API_KEY"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={\n  \"model\": \"gpt-4o-mini\",\n  \"max_tokens\": 400,\n  \"temperature\": 0.7,\n  \"messages\": [\n    {\n      \"role\": \"system\",\n      \"content\": \"Eres un asesor inmobiliario profesional de Residencial Alquimia en Huaranguillo, Sachaca - Arequipa, Perú.\\n\\nPERSONALIDAD: Amable, profesional, entusiasta. Respondes natural como humano.\\n\\nPROPIEDADES DISPONIBLES:\\n{{ $json.properties }}\\n\\nREGLAS:\\n- Si preguntan por 'parque': ofrecer lotes con parque\\n- Si preguntan por 'esquina': ofrecer lotes esquina\\n- Si preguntan por 'campiña/vista': ofrecer lotes campiña\\n- Ofrecer 2 opciones: económica y premium\\n- Para citas: preguntar fecha/hora preferida\\n\\nFORMATO: Responde en 2-3 mensajes CORTOS separados por [SPLIT]\\n\\nMENSAJE: {{ $json.currentMessage }}\"\n    }\n  ]\n}",
+                "options": {
+                    "timeout": 30000
+                }
+            },
+            "id": "ai-call",
+            "name": "Call OpenAI",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                2240,
+                100
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "const response = $input.first().json;\nconst ctx = $('Prepare Context').item.json;\nconst aiText = response.choices?.[0]?.message?.content || 'Gracias por contactarnos. Un asesor te atenderá pronto.';\n\nlet msgs = aiText.split('[SPLIT]').map(m => m.trim()).filter(m => m);\nif (msgs.length === 0) msgs = [aiText];\nif (msgs.length === 1 && aiText.length > 100) {\n  const sentences = aiText.split(/(?<=[.!?])\\s+/);\n  if (sentences.length > 1) msgs = sentences.slice(0, 3);\n}\n\nreturn msgs.map((text, i) => ({\n  text,\n  phone: ctx.phone,\n  instance: ctx.instance,\n  leadId: ctx.leadId,\n  index: i\n}));"
+            },
+            "id": "split-msgs",
+            "name": "Split Messages",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                2440,
+                100
+            ]
+        },
+        {
+            "parameters": {
+                "batchSize": 1,
+                "options": {}
+            },
+            "id": "loop",
+            "name": "Loop",
+            "type": "n8n-nodes-base.splitInBatches",
+            "typeVersion": 3,
+            "position": [
+                2640,
+                100
+            ]
+        },
+        {
+            "parameters": {
+                "amount": "={{ 1000 + Math.floor(Math.random() * 1500) }}",
+                "unit": "milliseconds"
+            },
+            "id": "delay",
+            "name": "Human Delay",
+            "type": "n8n-nodes-base.wait",
+            "typeVersion": 1.1,
+            "position": [
+                2840,
+                100
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "=https://evolutionapi.kywia.com/message/sendText/{{ $json.instance }}",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        },
+                        {
+                            "name": "apikey",
+                            "value": "YOUR_EVOLUTION_API_KEY"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={\n  \"number\": \"{{ $json.phone }}\",\n  \"text\": {{ JSON.stringify($json.text) }}\n}"
+            },
+            "id": "send-wa",
+            "name": "Send WhatsApp",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                3040,
+                100
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://byoalaoqyedwxpcugfhg.supabase.co/rest/v1/messages",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "apikey",
+                            "value": "YOUR_SUPABASE_ANON_KEY"
+                        },
+                        {
+                            "name": "Authorization",
+                            "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ5b2FsYW9xeWVkd3hwY3VnZmhnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk4Njc1OTUsImV4cCI6MjA4NTQ0MzU5NX0.fi63bqEDlFHkG88clPZPY20JFQ8idBLP_mAD4W2BFO8"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={\n  \"organization_id\": \"00000000-0000-0000-0000-000000000000\",\n  \"lead_id\": \"{{ $json.leadId }}\",\n  \"content\": {{ JSON.stringify($json.text) }},\n  \"sender\": \"agent\"\n}"
+            },
+            "id": "save-out",
+            "name": "Save Outgoing",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                3240,
+                100
+            ]
+        },
+        {
+            "parameters": {},
+            "id": "back",
+            "name": "Back",
+            "type": "n8n-nodes-base.noOp",
+            "typeVersion": 1,
+            "position": [
+                3440,
+                100
+            ]
+        }
+    ],
+    "connections": {
+        "Webhook": {
+            "main": [
+                [
+                    {
+                        "node": "Respond OK",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Respond OK": {
+            "main": [
+                [
+                    {
+                        "node": "Parse Message",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Parse Message": {
+            "main": [
+                [
+                    {
+                        "node": "Valid?",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Valid?": {
+            "main": [
+                [
+                    {
+                        "node": "Find Lead",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                []
+            ]
+        },
+        "Find Lead": {
+            "main": [
+                [
+                    {
+                        "node": "Process Lead",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Process Lead": {
+            "main": [
+                [
+                    {
+                        "node": "Lead Exists?",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Lead Exists?": {
+            "main": [
+                [
+                    {
+                        "node": "Save Message",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "Get Agents",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Get Agents": {
+            "main": [
+                [
+                    {
+                        "node": "Select Agent",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Select Agent": {
+            "main": [
+                [
+                    {
+                        "node": "Create Lead",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Create Lead": {
+            "main": [
+                [
+                    {
+                        "node": "Set Lead ID",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Set Lead ID": {
+            "main": [
+                [
+                    {
+                        "node": "Save Message",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Save Message": {
+            "main": [
+                [
+                    {
+                        "node": "Wait 8s",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Wait 8s": {
+            "main": [
+                [
+                    {
+                        "node": "Get Properties",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Get Properties": {
+            "main": [
+                [
+                    {
+                        "node": "Prepare Context",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Prepare Context": {
+            "main": [
+                [
+                    {
+                        "node": "Call OpenAI",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Call OpenAI": {
+            "main": [
+                [
+                    {
+                        "node": "Split Messages",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Split Messages": {
+            "main": [
+                [
+                    {
+                        "node": "Loop",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Loop": {
+            "main": [
+                [
+                    {
+                        "node": "Human Delay",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                []
+            ]
+        },
+        "Human Delay": {
+            "main": [
+                [
+                    {
+                        "node": "Send WhatsApp",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Send WhatsApp": {
+            "main": [
+                [
+                    {
+                        "node": "Save Outgoing",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Save Outgoing": {
+            "main": [
+                [
+                    {
+                        "node": "Back",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Back": {
+            "main": [
+                [
+                    {
+                        "node": "Loop",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    },
+    "settings": {
+        "executionOrder": "v1"
+    }
+}

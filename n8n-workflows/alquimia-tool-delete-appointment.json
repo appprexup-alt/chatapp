@@ -1,0 +1,197 @@
+{
+    "name": "Tools - Delete Appointment v1",
+    "nodes": [
+        {
+            "parameters": {},
+            "id": "trigger",
+            "name": "Execute Workflow Trigger",
+            "type": "n8n-nodes-base.executeWorkflowTrigger",
+            "typeVersion": 1,
+            "position": [
+                250,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "method": "GET",
+                "url": "=https://byoalaoqyedwxpcugfhg.supabase.co/rest/v1/appointments?lead_id=eq.{{ $json.lead_id }}&organization_id=eq.00000000-0000-0000-0000-000000000000&status=eq.Pendiente&order=date.asc&limit=1",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "apikey",
+                            "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ5b2FsYW9xeWVkd3hwY3VnZmhnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk4Njc1OTUsImV4cCI6MjA4NTQ0MzU5NX0.fi63bqEDlFHkG88clPZPY20JFQ8idBLP_mAD4W2BFO8"
+                        },
+                        {
+                            "name": "Authorization",
+                            "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ5b2FsYW9xeWVkd3hwY3VnZmhnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk4Njc1OTUsImV4cCI6MjA4NTQ0MzU5NX0.fi63bqEDlFHkG88clPZPY20JFQ8idBLP_mAD4W2BFO8"
+                        }
+                    ]
+                }
+            },
+            "id": "find-apt",
+            "name": "Find Appointment",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                450,
+                300
+            ],
+            "alwaysOutputData": true,
+            "continueOnFail": true
+        },
+        {
+            "parameters": {
+                "jsCode": "const items = $input.all();\n\nlet appointments = [];\nif (items.length > 0) {\n  const firstItem = items[0].json;\n  if (Array.isArray(firstItem)) {\n    appointments = firstItem;\n  } else if (firstItem && firstItem.id) {\n    appointments = [firstItem];\n  }\n}\n\nif (appointments.length === 0) {\n  return [{ json: { skip: true, result: 'No se encontró ninguna cita pendiente para este lead.' } }];\n}\n\nconst apt = appointments[0];\n\nreturn [{ json: {\n  skip: false,\n  appointmentId: apt.id,\n  title: apt.title,\n  date: apt.date\n} }];"
+            },
+            "id": "process-find",
+            "name": "Process Find Result",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                650,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "conditions": {
+                    "boolean": [
+                        {
+                            "value1": "={{ $json.skip }}",
+                            "value2": false
+                        }
+                    ]
+                }
+            },
+            "id": "has-apt",
+            "name": "Found?",
+            "type": "n8n-nodes-base.if",
+            "typeVersion": 1,
+            "position": [
+                850,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "method": "DELETE",
+                "url": "=https://byoalaoqyedwxpcugfhg.supabase.co/rest/v1/appointments?id=eq.{{ $json.appointmentId }}",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "apikey",
+                            "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ5b2FsYW9xeWVkd3hwY3VnZmhnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk4Njc1OTUsImV4cCI6MjA4NTQ0MzU5NX0.fi63bqEDlFHkG88clPZPY20JFQ8idBLP_mAD4W2BFO8"
+                        },
+                        {
+                            "name": "Authorization",
+                            "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ5b2FsYW9xeWVkd3hwY3VnZmhnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk4Njc1OTUsImV4cCI6MjA4NTQ0MzU5NX0.fi63bqEDlFHkG88clPZPY20JFQ8idBLP_mAD4W2BFO8"
+                        }
+                    ]
+                }
+            },
+            "id": "delete-apt",
+            "name": "Delete Appointment",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                1050,
+                200
+            ],
+            "alwaysOutputData": true,
+            "continueOnFail": true
+        },
+        {
+            "parameters": {
+                "jsCode": "const ctx = $('Process Find Result').item.json;\n\nreturn [{ json: {\n  result: JSON.stringify({\n    success: true,\n    deleted_appointment_id: ctx.appointmentId,\n    title: ctx.title,\n    date: ctx.date,\n    message: 'Cita \"' + ctx.title + '\" del ' + ctx.date + ' cancelada exitosamente.'\n  })\n} }];"
+            },
+            "id": "format-success",
+            "name": "Format Success",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                1250,
+                200
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "return [{ json: { result: $json.result || 'No se encontró ninguna cita pendiente para este lead.' } }];"
+            },
+            "id": "format-not-found",
+            "name": "Not Found",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                1050,
+                400
+            ]
+        }
+    ],
+    "connections": {
+        "Execute Workflow Trigger": {
+            "main": [
+                [
+                    {
+                        "node": "Find Appointment",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Find Appointment": {
+            "main": [
+                [
+                    {
+                        "node": "Process Find Result",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Process Find Result": {
+            "main": [
+                [
+                    {
+                        "node": "Found?",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Found?": {
+            "main": [
+                [
+                    {
+                        "node": "Delete Appointment",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "Not Found",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Delete Appointment": {
+            "main": [
+                [
+                    {
+                        "node": "Format Success",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    }
+}

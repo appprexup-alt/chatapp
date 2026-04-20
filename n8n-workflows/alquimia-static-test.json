@@ -1,0 +1,149 @@
+{
+    "name": "Alquimia Static Test",
+    "nodes": [
+        {
+            "parameters": {
+                "httpMethod": "POST",
+                "path": "alquimia-test",
+                "options": {},
+                "responseMode": "responseNode"
+            },
+            "id": "webhook",
+            "name": "Webhook",
+            "type": "n8n-nodes-base.webhook",
+            "typeVersion": 2,
+            "position": [
+                200,
+                300
+            ],
+            "webhookId": "alquimia-test"
+        },
+        {
+            "parameters": {
+                "respondWith": "json",
+                "responseBody": "={\"ok\":true}"
+            },
+            "id": "respond",
+            "name": "Respond",
+            "type": "n8n-nodes-base.respondToWebhook",
+            "typeVersion": 1,
+            "position": [
+                400,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "const body = $input.first().json;\n\nif (body.event !== 'messages.upsert') {\n  return { skip: true };\n}\n\nconst data = body.data || {};\nconst key = data.key || {};\nconst jid = key.remoteJid || '';\n\nif (!jid || jid.includes('@g.us') || jid === 'status@broadcast' || key.fromMe) {\n  return { skip: true };\n}\n\nconst phone = jid.split('@')[0];\nconst msg = data.message || {};\nconst content = msg.conversation || msg.extendedTextMessage?.text || '';\nconst instance = body.instance || body.instanceName || '';\n\nif (!content.toLowerCase().includes('alquimia')) {\n  return { skip: true };\n}\n\nreturn {\n  skip: false,\n  phone,\n  content,\n  instance,\n  name: data.pushName || 'Cliente'\n};"
+            },
+            "id": "parse",
+            "name": "Parse",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                600,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "conditions": {
+                    "boolean": [
+                        {
+                            "value1": "={{ $json.skip }}",
+                            "value2": false
+                        }
+                    ]
+                }
+            },
+            "id": "check",
+            "name": "Check",
+            "type": "n8n-nodes-base.if",
+            "typeVersion": 1,
+            "position": [
+                800,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "=https://evolutionapi.kywia.com/message/sendText/{{ $json.instance }}",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        },
+                        {
+                            "name": "apikey",
+                            "value": "2023bb74c1f985aa39f432fa165a27f4"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={\n  \"number\": \"{{ $json.phone }}\",\n  \"text\": \"¡Hola {{ $json.name }}! 🏡 Gracias por tu interés en Residencial Alquimia. Tenemos lotes desde $9,500 USD. ¿Te gustaría agendar una visita?\"\n}"
+            },
+            "id": "send",
+            "name": "Send",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                1000,
+                200
+            ]
+        }
+    ],
+    "connections": {
+        "Webhook": {
+            "main": [
+                [
+                    {
+                        "node": "Respond",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Respond": {
+            "main": [
+                [
+                    {
+                        "node": "Parse",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Parse": {
+            "main": [
+                [
+                    {
+                        "node": "Check",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Check": {
+            "main": [
+                [
+                    {
+                        "node": "Send",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                []
+            ]
+        }
+    },
+    "settings": {
+        "executionOrder": "v1"
+    }
+}

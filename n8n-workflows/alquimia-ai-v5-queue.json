@@ -1,0 +1,803 @@
+{
+    "name": "Alquimia AI v5 - Queue Stacking",
+    "nodes": [
+        {
+            "parameters": {
+                "httpMethod": "POST",
+                "path": "alquimia-v5",
+                "options": {}
+            },
+            "id": "webhook",
+            "name": "Webhook",
+            "type": "n8n-nodes-base.webhook",
+            "typeVersion": 2,
+            "position": [
+                200,
+                400
+            ],
+            "webhookId": "alquimia-v5"
+        },
+        {
+            "parameters": {
+                "amount": 1
+            },
+            "type": "n8n-nodes-base.wait",
+            "typeVersion": 1.1,
+            "position": [
+                400,
+                400
+            ],
+            "id": "wait-initial",
+            "name": "Wait 1s",
+            "webhookId": "wait-1s"
+        },
+        {
+            "parameters": {
+                "jsCode": "const input = $input.first().json;\nconst body = input.body || input;\nconst data = body.data || body;\nconst message = data.message || {};\nconst key = data.key || {};\n\nconst instance_server_url = 'https://evolutionapi.kywia.com';\nconst instance_name = body.instance || 'prexup';\nconst instance_apikey = '2023bb74c1f985aa39f432fa165a27f4';\nconst message_id = key.id || '';\nconst user_number = key.remoteJid || body.sender || '';\nconst phone = user_number.replace('@s.whatsapp.net', '').replace('@g.us', '');\nconst pushName = data.pushName || body.pushName || 'Cliente';\nconst direction = key.fromMe ? 'outbound' : 'inbound';\n\nlet message_content_type = 'text';\nlet message_content = '';\n\nif (message.conversation) {\n  message_content = message.conversation;\n} else if (message.extendedTextMessage && message.extendedTextMessage.text) {\n  message_content = message.extendedTextMessage.text;\n} else if (message.buttonsResponseMessage) {\n  message_content = message.buttonsResponseMessage.selectedDisplayText || '';\n} else if (message.listResponseMessage) {\n  message_content = message.listResponseMessage.title || '';\n} else if (message.imageMessage) {\n  message_content_type = 'image';\n  message_content = message.imageMessage.caption || '';\n} else if (message.audioMessage) {\n  message_content_type = 'audio';\n  message_content = 'Audio';\n} else if (message.videoMessage) {\n  message_content_type = 'video';\n  message_content = message.videoMessage.caption || '';\n} else if (body.text) {\n  message_content = body.text;\n}\n\nconst isOutbound = key.fromMe === true;\nconst isGroup = user_number.includes('@g.us');\nconst isEmpty = !message_content && message_content_type === 'text';\n\nif (isOutbound || isGroup) {\n  return { skip: true, reason: isOutbound ? 'outbound' : 'group' };\n}\n\nconst safeName = pushName ? String(pushName).replace(/'/g, \"''\").substring(0, 100) : 'WA ' + phone;\nconst safeContent = String(message_content).trim().replace(/'/g, \"''\").substring(0, 1000);\n\nreturn {\n  skip: false,\n  instance_server_url,\n  instance_name,\n  instance_apikey,\n  message_id,\n  message_content_type,\n  message_content: safeContent,\n  phone,\n  user_number,\n  lead_name: safeName,\n  direction\n};"
+            },
+            "id": "normalize",
+            "name": "Normalize",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                600,
+                400
+            ]
+        },
+        {
+            "parameters": {
+                "conditions": {
+                    "boolean": [
+                        {
+                            "value1": "={{ $json.skip }}",
+                            "value2": false
+                        }
+                    ]
+                }
+            },
+            "id": "valid-check",
+            "name": "Valid?",
+            "type": "n8n-nodes-base.if",
+            "typeVersion": 1,
+            "position": [
+                800,
+                400
+            ]
+        },
+        {
+            "parameters": {
+                "method": "GET",
+                "url": "=https://byoalaoqyedwxpcugfhg.supabase.co/rest/v1/leads?phone=eq.{{ $json.phone }}&select=id,name,chatbot_active&limit=1",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "apikey",
+                            "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ5b2FsYW9xeWVkd3hwY3VnZmhnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk4Njc1OTUsImV4cCI6MjA4NTQ0MzU5NX0.fi63bqEDlFHkG88clPZPY20JFQ8idBLP_mAD4W2BFO8"
+                        },
+                        {
+                            "name": "Authorization",
+                            "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ5b2FsYW9xeWVkd3hwY3VnZmhnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk4Njc1OTUsImV4cCI6MjA4NTQ0MzU5NX0.fi63bqEDlFHkG88clPZPY20JFQ8idBLP_mAD4W2BFO8"
+                        }
+                    ]
+                }
+            },
+            "id": "check-lead",
+            "name": "Check Lead",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                1000,
+                300
+            ],
+            "alwaysOutputData": true
+        },
+        {
+            "parameters": {
+                "jsCode": "const normData = $('Normalize').first().json;\nconst leadResult = $input.first().json;\nconst leads = Array.isArray(leadResult) ? leadResult : [leadResult];\nconst lead = leads[0] || {};\n\nconst leadExists = Boolean(lead.id);\nconst chatbotActive = lead.chatbot_active === true;\nconst shouldProceed = !leadExists || chatbotActive;\n\nreturn {\n  ...normData,\n  lead_id: lead.id || null,\n  lead_exists: leadExists,\n  chatbot_active: chatbotActive,\n  should_proceed: shouldProceed\n};"
+            },
+            "id": "evaluate",
+            "name": "Evaluate",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                1200,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "conditions": {
+                    "boolean": [
+                        {
+                            "value1": "={{ $json.should_proceed }}",
+                            "value2": true
+                        }
+                    ]
+                }
+            },
+            "id": "chatbot-filter",
+            "name": "Chatbot Active?",
+            "type": "n8n-nodes-base.if",
+            "typeVersion": 1,
+            "position": [
+                1400,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "rules": {
+                    "values": [
+                        {
+                            "conditions": {
+                                "options": {
+                                    "caseSensitive": true,
+                                    "leftValue": "",
+                                    "typeValidation": "strict",
+                                    "version": 2
+                                },
+                                "conditions": [
+                                    {
+                                        "leftValue": "={{ $json.message_content_type }}",
+                                        "rightValue": "audio",
+                                        "operator": {
+                                            "type": "string",
+                                            "operation": "equals"
+                                        }
+                                    }
+                                ],
+                                "combinator": "and"
+                            },
+                            "renameOutput": true,
+                            "outputKey": "Audio"
+                        },
+                        {
+                            "conditions": {
+                                "options": {
+                                    "caseSensitive": true,
+                                    "leftValue": "",
+                                    "typeValidation": "strict",
+                                    "version": 2
+                                },
+                                "conditions": [
+                                    {
+                                        "leftValue": "={{ $json.message_content_type }}",
+                                        "rightValue": "image",
+                                        "operator": {
+                                            "type": "string",
+                                            "operation": "equals"
+                                        }
+                                    }
+                                ],
+                                "combinator": "and"
+                            },
+                            "renameOutput": true,
+                            "outputKey": "Imagen"
+                        },
+                        {
+                            "conditions": {
+                                "options": {
+                                    "caseSensitive": true,
+                                    "leftValue": "",
+                                    "typeValidation": "strict",
+                                    "version": 2
+                                },
+                                "conditions": [
+                                    {
+                                        "leftValue": "={{ $json.message_content_type }}",
+                                        "rightValue": "text",
+                                        "operator": {
+                                            "type": "string",
+                                            "operation": "equals"
+                                        }
+                                    }
+                                ],
+                                "combinator": "and"
+                            },
+                            "renameOutput": true,
+                            "outputKey": "Texto"
+                        }
+                    ]
+                },
+                "options": {
+                    "fallbackOutput": "extra",
+                    "renameFallbackOutput": "Otro"
+                }
+            },
+            "type": "n8n-nodes-base.switch",
+            "typeVersion": 3.2,
+            "position": [
+                1600,
+                212
+            ],
+            "id": "switch-type",
+            "name": "Switch"
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "={{ $('Evaluate').item.json.instance_server_url }}/chat/getBase64FromMediaMessage/{{ $('Evaluate').item.json.instance_name }}",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "apikey",
+                            "value": "={{ $('Evaluate').item.json.instance_apikey }}"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "bodyParameters": {
+                    "parameters": [
+                        {
+                            "name": "message.key.id",
+                            "value": "={{ $('Evaluate').item.json.message_id }}"
+                        },
+                        {
+                            "name": "convertToMp4",
+                            "value": "={{ Boolean(false) }}"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                1800,
+                100
+            ],
+            "id": "get-audio",
+            "name": "Get Audio"
+        },
+        {
+            "parameters": {
+                "operation": "toBinary",
+                "sourceProperty": "base64",
+                "options": {
+                    "mimeType": "={{ $json.mimetype }}"
+                }
+            },
+            "type": "n8n-nodes-base.convertToFile",
+            "typeVersion": 1.1,
+            "position": [
+                2000,
+                100
+            ],
+            "id": "convert-audio",
+            "name": "Convert Audio"
+        },
+        {
+            "parameters": {
+                "resource": "audio",
+                "operation": "transcribe",
+                "options": {}
+            },
+            "type": "@n8n/n8n-nodes-langchain.openAi",
+            "typeVersion": 1.8,
+            "position": [
+                2200,
+                100
+            ],
+            "id": "transcribe",
+            "name": "Transcribe",
+            "credentials": {
+                "openAiApi": {
+                    "id": "openai-credential",
+                    "name": "OpenAI API"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "assignments": {
+                    "assignments": [
+                        {
+                            "id": "a1",
+                            "name": "final_content",
+                            "value": "={{ $json.text }}",
+                            "type": "string"
+                        },
+                        {
+                            "id": "a2",
+                            "name": "phone",
+                            "value": "={{ $('Evaluate').item.json.phone }}",
+                            "type": "string"
+                        },
+                        {
+                            "id": "a3",
+                            "name": "lead_name",
+                            "value": "={{ $('Evaluate').item.json.lead_name }}",
+                            "type": "string"
+                        },
+                        {
+                            "id": "a4",
+                            "name": "user_number",
+                            "value": "={{ $('Evaluate').item.json.user_number }}",
+                            "type": "string"
+                        },
+                        {
+                            "id": "a5",
+                            "name": "instance_name",
+                            "value": "={{ $('Evaluate').item.json.instance_name }}",
+                            "type": "string"
+                        },
+                        {
+                            "id": "a6",
+                            "name": "instance_server_url",
+                            "value": "={{ $('Evaluate').item.json.instance_server_url }}",
+                            "type": "string"
+                        },
+                        {
+                            "id": "a7",
+                            "name": "instance_apikey",
+                            "value": "={{ $('Evaluate').item.json.instance_apikey }}",
+                            "type": "string"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "type": "n8n-nodes-base.set",
+            "typeVersion": 3.4,
+            "position": [
+                2400,
+                100
+            ],
+            "id": "set-audio",
+            "name": "Set Audio Content"
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "={{ $('Evaluate').item.json.instance_server_url }}/chat/getBase64FromMediaMessage/{{ $('Evaluate').item.json.instance_name }}",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "apikey",
+                            "value": "={{ $('Evaluate').item.json.instance_apikey }}"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "bodyParameters": {
+                    "parameters": [
+                        {
+                            "name": "message.key.id",
+                            "value": "={{ $('Evaluate').item.json.message_id }}"
+                        },
+                        {
+                            "name": "convertToMp4",
+                            "value": "={{ Boolean(false) }}"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                1800,
+                300
+            ],
+            "id": "get-image",
+            "name": "Get Image"
+        },
+        {
+            "parameters": {
+                "operation": "toBinary",
+                "sourceProperty": "base64",
+                "options": {
+                    "mimeType": "={{ $json.mimetype }}"
+                }
+            },
+            "type": "n8n-nodes-base.convertToFile",
+            "typeVersion": 1.1,
+            "position": [
+                2000,
+                300
+            ],
+            "id": "convert-image",
+            "name": "Convert Image"
+        },
+        {
+            "parameters": {
+                "resource": "image",
+                "operation": "analyze",
+                "modelId": {
+                    "__rl": true,
+                    "value": "gpt-4o",
+                    "mode": "list",
+                    "cachedResultName": "GPT-4O"
+                },
+                "text": "Describe esta imagen brevemente. Si es un terreno o propiedad, menciona características visibles.",
+                "inputType": "base64",
+                "options": {}
+            },
+            "type": "@n8n/n8n-nodes-langchain.openAi",
+            "typeVersion": 1.8,
+            "position": [
+                2200,
+                300
+            ],
+            "id": "describe-image",
+            "name": "Describe Image",
+            "credentials": {
+                "openAiApi": {
+                    "id": "openai-credential",
+                    "name": "OpenAI API"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "assignments": {
+                    "assignments": [
+                        {
+                            "id": "b1",
+                            "name": "final_content",
+                            "value": "=[IMAGEN] {{ $json.content }}",
+                            "type": "string"
+                        },
+                        {
+                            "id": "b2",
+                            "name": "phone",
+                            "value": "={{ $('Evaluate').item.json.phone }}",
+                            "type": "string"
+                        },
+                        {
+                            "id": "b3",
+                            "name": "lead_name",
+                            "value": "={{ $('Evaluate').item.json.lead_name }}",
+                            "type": "string"
+                        },
+                        {
+                            "id": "b4",
+                            "name": "user_number",
+                            "value": "={{ $('Evaluate').item.json.user_number }}",
+                            "type": "string"
+                        },
+                        {
+                            "id": "b5",
+                            "name": "instance_name",
+                            "value": "={{ $('Evaluate').item.json.instance_name }}",
+                            "type": "string"
+                        },
+                        {
+                            "id": "b6",
+                            "name": "instance_server_url",
+                            "value": "={{ $('Evaluate').item.json.instance_server_url }}",
+                            "type": "string"
+                        },
+                        {
+                            "id": "b7",
+                            "name": "instance_apikey",
+                            "value": "={{ $('Evaluate').item.json.instance_apikey }}",
+                            "type": "string"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "type": "n8n-nodes-base.set",
+            "typeVersion": 3.4,
+            "position": [
+                2400,
+                300
+            ],
+            "id": "set-image",
+            "name": "Set Image Content"
+        },
+        {
+            "parameters": {
+                "assignments": {
+                    "assignments": [
+                        {
+                            "id": "c1",
+                            "name": "final_content",
+                            "value": "={{ $json.message_content }}",
+                            "type": "string"
+                        },
+                        {
+                            "id": "c2",
+                            "name": "phone",
+                            "value": "={{ $json.phone }}",
+                            "type": "string"
+                        },
+                        {
+                            "id": "c3",
+                            "name": "lead_name",
+                            "value": "={{ $json.lead_name }}",
+                            "type": "string"
+                        },
+                        {
+                            "id": "c4",
+                            "name": "user_number",
+                            "value": "={{ $json.user_number }}",
+                            "type": "string"
+                        },
+                        {
+                            "id": "c5",
+                            "name": "instance_name",
+                            "value": "={{ $json.instance_name }}",
+                            "type": "string"
+                        },
+                        {
+                            "id": "c6",
+                            "name": "instance_server_url",
+                            "value": "={{ $json.instance_server_url }}",
+                            "type": "string"
+                        },
+                        {
+                            "id": "c7",
+                            "name": "instance_apikey",
+                            "value": "={{ $json.instance_apikey }}",
+                            "type": "string"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "type": "n8n-nodes-base.set",
+            "typeVersion": 3.4,
+            "position": [
+                1800,
+                500
+            ],
+            "id": "set-text",
+            "name": "Set Text Content"
+        },
+        {
+            "parameters": {
+                "jsCode": "return $input.all();"
+            },
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                2600,
+                300
+            ],
+            "id": "merge",
+            "name": "Merge"
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://byoalaoqyedwxpcugfhg.supabase.co/rest/v1/rpc/get_or_create_lead",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "apikey",
+                            "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ5b2FsYW9xeWVkd3hwY3VnZmhnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk4Njc1OTUsImV4cCI6MjA4NTQ0MzU5NX0.fi63bqEDlFHkG88clPZPY20JFQ8idBLP_mAD4W2BFO8"
+                        },
+                        {
+                            "name": "Authorization",
+                            "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ5b2FsYW9xeWVkd3hwY3VnZmhnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk4Njc1OTUsImV4cCI6MjA4NTQ0MzU5NX0.fi63bqEDlFHkG88clPZPY20JFQ8idBLP_mAD4W2BFO8"
+                        },
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={\n  \"p_phone\": \"{{ $json.phone }}\",\n  \"p_name\": \"{{ $json.lead_name }}\",\n  \"p_org_id\": \"00000000-0000-0000-0000-000000000000\"\n}"
+            },
+            "id": "get-or-create-lead",
+            "name": "GetOrCreateLead",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                2800,
+                300
+            ],
+            "alwaysOutputData": true
+        },
+        {
+            "parameters": {
+                "jsCode": "const result = $input.first().json;\nconst mergeData = $('Merge').first().json;\n\nlet leadId = result.lead_id || result.id;\nif (typeof result === 'string') {\n  try { leadId = JSON.parse(result).lead_id; } catch(e) {}\n}\n\nreturn {\n  lead_id: leadId,\n  phone: mergeData.phone,\n  user_number: mergeData.user_number,\n  lead_name: mergeData.lead_name,\n  final_content: mergeData.final_content,\n  instance_name: mergeData.instance_name,\n  instance_server_url: mergeData.instance_server_url,\n  instance_apikey: mergeData.instance_apikey\n};\n"
+            },
+            "id": "prepare-data",
+            "name": "Prepare Data",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                3000,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://byoalaoqyedwxpcugfhg.supabase.co/rest/v1/messages",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "apikey",
+                            "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ5b2FsYW9xeWVkd3hwY3VnZmhnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk4Njc1OTUsImV4cCI6MjA4NTQ0MzU5NX0.fi63bqEDlFHkG88clPZPY20JFQ8idBLP_mAD4W2BFO8"
+                        },
+                        {
+                            "name": "Authorization",
+                            "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ5b2FsYW9xeWVkd3hwY3VnZmhnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk4Njc1OTUsImV4cCI6MjA4NTQ0MzU5NX0.fi63bqEDlFHkG88clPZPY20JFQ8idBLP_mAD4W2BFO8"
+                        },
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        },
+                        {
+                            "name": "Prefer",
+                            "value": "return=minimal"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "contentType": "json",
+                "bodyParameters": {
+                    "parameters": [
+                        {
+                            "name": "organization_id",
+                            "value": "00000000-0000-0000-0000-000000000000"
+                        },
+                        {
+                            "name": "lead_id",
+                            "value": "={{ $json.lead_id }}"
+                        },
+                        {
+                            "name": "content",
+                            "value": "={{ $json.final_content }}"
+                        },
+                        {
+                            "name": "sender",
+                            "value": "client"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "id": "save-message",
+            "name": "Save Message",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                3200,
+                300
+            ],
+            "alwaysOutputData": true
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://byoalaoqyedwxpcugfhg.supabase.co/rest/v1/message_queue",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "apikey",
+                            "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ5b2FsYW9xeWVkd3hwY3VnZmhnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk4Njc1OTUsImV4cCI6MjA4NTQ0MzU5NX0.fi63bqEDlFHkG88clPZPY20JFQ8idBLP_mAD4W2BFO8"
+                        },
+                        {
+                            "name": "Authorization",
+                            "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ5b2FsYW9xeWVkd3hwY3VnZmhnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk4Njc1OTUsImV4cCI6MjA4NTQ0MzU5NX0.fi63bqEDlFHkG88clPZPY20JFQ8idBLP_mAD4W2BFO8"
+                        },
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        },
+                        {
+                            "name": "Prefer",
+                            "value": "return=minimal"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "contentType": "json",
+                "bodyParameters": {
+                    "parameters": [
+                        {
+                            "name": "phone",
+                            "value": "={{ $('Prepare Data').item.json.phone }}"
+                        },
+                        {
+                            "name": "content",
+                            "value": "={{ $('Prepare Data').item.json.final_content }}"
+                        },
+                        {
+                            "name": "lead_id",
+                            "value": "={{ $('Prepare Data').item.json.lead_id }}"
+                        },
+                        {
+                            "name": "status",
+                            "value": "pending"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "id": "insert-queue",
+            "name": "Insert to Queue",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                3400,
+                300
+            ],
+            "alwaysOutputData": true
+        },
+        {
+            "parameters": {
+                "amount": 12,
+                "unit": "seconds"
+            },
+            "type": "n8n-nodes-base.wait",
+            "typeVersion": 1.1,
+            "position": [
+                3600,
+                300
+            ],
+            "id": "wait-12s",
+            "name": "Wait 12s",
+            "webhookId": "wait-12s"
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://byoalaoqyedwxpcugfhg.supabase.co/rest/v1/rpc/get_and_merge_queue",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "apikey",
+                            "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ5b2FsYW9xeWVkd3hwY3VnZmhnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk4Njc1OTUsImV4cCI6MjA4NTQ0MzU5NX0.fi63bqEDlFHkG88clPZPY20JFQ8idBLP_mAD4W2BFO8"
+                        },
+                        {
+                            "name": "Authorization",
+                            "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ5b2FsYW9xeWVkd3hwY3VnZmhnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk4Njc1OTUsImV4cCI6MjA4NTQ0MzU5NX0.fi63bqEDlFHkG88clPZPY20JFQ8idBLP_mAD4W2BFO8"
+                        },
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={\n  \"p_phone\": \"{{ $('Prepare Data').item.json.phone }}\"\n}"
+            },
+            "id": "get-merge-queue",
+            "name": "Get & Merge Queue",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                3800,
+                300
+            ],
+            "alwaysOutputData": true
+        },
+        {
+            "parameters": {
+                "conditions": {
+                    "boolean": [
+                        {
+                            "value1": "={{ !!$json.merged_message }}",
+                            "value2": true
+                        }
+                    ]
+                }
+            },
+            "id": "has-messages",
+            "name": "Has Messages?",
+            "type": "n8n-nodes-base.if",
+            "typeVersion": 1,
+            "position": [
+                4000,
+                300
+            ]
+        }
+    ],
+    "connections": {}
+}

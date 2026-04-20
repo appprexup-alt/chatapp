@@ -1,0 +1,214 @@
+{
+    "name": "Alquimia AI Simple",
+    "nodes": [
+        {
+            "parameters": {
+                "httpMethod": "POST",
+                "path": "alquimia-test",
+                "options": {},
+                "responseMode": "responseNode"
+            },
+            "id": "webhook",
+            "name": "Webhook",
+            "type": "n8n-nodes-base.webhook",
+            "typeVersion": 2,
+            "position": [
+                200,
+                300
+            ],
+            "webhookId": "alquimia-test"
+        },
+        {
+            "parameters": {
+                "respondWith": "json",
+                "responseBody": "={\"ok\":true}"
+            },
+            "id": "respond",
+            "name": "Respond",
+            "type": "n8n-nodes-base.respondToWebhook",
+            "typeVersion": 1,
+            "position": [
+                400,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "const body = $input.first().json;\n\nconsole.log('Body recibido:', JSON.stringify(body));\n\nif (body.event !== 'messages.upsert') {\n  return { skip: true, reason: 'not_message' };\n}\n\nconst data = body.data || {};\nconst key = data.key || {};\nconst jid = key.remoteJid || '';\n\nif (!jid || jid.includes('@g.us') || jid === 'status@broadcast' || key.fromMe) {\n  return { skip: true, reason: 'invalid' };\n}\n\nconst phone = jid.split('@')[0];\nconst msg = data.message || {};\nconst content = msg.conversation || msg.extendedTextMessage?.text || '[media]';\nconst instance = body.instance || body.instanceName || '';\n\nif (!content.toLowerCase().includes('alquimia')) {\n  return { skip: true, reason: 'no_keyword' };\n}\n\nreturn {\n  skip: false,\n  phone,\n  content,\n  instance,\n  name: data.pushName || 'Cliente'\n};"
+            },
+            "id": "parse",
+            "name": "Parse",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                600,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "conditions": {
+                    "boolean": [
+                        {
+                            "value1": "={{ $json.skip }}",
+                            "value2": false
+                        }
+                    ]
+                }
+            },
+            "id": "check",
+            "name": "Check",
+            "type": "n8n-nodes-base.if",
+            "typeVersion": 1,
+            "position": [
+                800,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://api.openai.com/v1/chat/completions",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        },
+                        {
+                            "name": "Authorization",
+                            "value": "Bearer YOUR_OPENAI_API_KEY"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={\n  \"model\": \"gpt-4o-mini\",\n  \"max_tokens\": 300,\n  \"messages\": [\n    {\n      \"role\": \"system\",\n      \"content\": \"Eres un asesor inmobiliario de Residencial Alquimia en Arequipa. Responde de forma breve y amable.\"\n    },\n    {\n      \"role\": \"user\",\n      \"content\": \"{{ $json.content }}\"\n    }\n  ]\n}"
+            },
+            "id": "ai",
+            "name": "OpenAI",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                1000,
+                200
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "const response = $input.first().json;\nconst ctx = $('Check').item.json;\nconst text = response.choices?.[0]?.message?.content || 'Gracias por contactarnos!';\n\nreturn {\n  phone: ctx.phone,\n  instance: ctx.instance,\n  text\n};"
+            },
+            "id": "format",
+            "name": "Format",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                1200,
+                200
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "=https://evolutionapi.kywia.com/message/sendText/{{ $json.instance }}",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        },
+                        {
+                            "name": "apikey",
+                            "value": "YOUR_EVOLUTION_API_KEY"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={\n  \"number\": \"{{ $json.phone }}\",\n  \"text\": {{ JSON.stringify($json.text) }}\n}"
+            },
+            "id": "send",
+            "name": "Send",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                1400,
+                200
+            ]
+        }
+    ],
+    "connections": {
+        "Webhook": {
+            "main": [
+                [
+                    {
+                        "node": "Respond",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Respond": {
+            "main": [
+                [
+                    {
+                        "node": "Parse",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Parse": {
+            "main": [
+                [
+                    {
+                        "node": "Check",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Check": {
+            "main": [
+                [
+                    {
+                        "node": "OpenAI",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                []
+            ]
+        },
+        "OpenAI": {
+            "main": [
+                [
+                    {
+                        "node": "Format",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Format": {
+            "main": [
+                [
+                    {
+                        "node": "Send",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    },
+    "settings": {
+        "executionOrder": "v1"
+    }
+}

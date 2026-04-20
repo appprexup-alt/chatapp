@@ -1,0 +1,91 @@
+{
+    "name": "Alquimia Fixed",
+    "nodes": [
+        {
+            "parameters": {
+                "httpMethod": "POST",
+                "path": "alquimia-test",
+                "options": {}
+            },
+            "id": "webhook",
+            "name": "Webhook",
+            "type": "n8n-nodes-base.webhook",
+            "typeVersion": 2,
+            "position": [
+                200,
+                300
+            ],
+            "webhookId": "alquimia-test"
+        },
+        {
+            "parameters": {
+                "jsCode": "const input = $input.first().json;\n\n// Los datos de Evolution API están en body (n8n los envuelve)\nconst body = input.body || input;\n\n// Extraer datos\nlet phone = '';\nlet content = '';\nlet instance = '';\nlet name = 'Cliente';\n\ntry {\n  // Datos de Evolution API\n  const data = body.data || {};\n  const key = data.key || {};\n  const jid = key.remoteJid || '';\n  \n  // Extraer teléfono\n  if (jid) {\n    phone = jid.split('@')[0];\n  }\n  \n  // Extraer mensaje\n  const msg = data.message || {};\n  content = msg.conversation || msg.extendedTextMessage?.text || '';\n  \n  // Nombre\n  name = data.pushName || 'Cliente';\n  \n  // Instancia\n  instance = body.instance || body.instanceName || '';\n  \n} catch(e) {\n  content = 'Error: ' + e.message;\n}\n\n// Fallbacks\nif (!phone) phone = 'unknown';\nif (!content) content = 'mensaje';\nif (!instance) instance = 'default';\n\nreturn {\n  phone,\n  content,\n  instance,\n  name\n};"
+            },
+            "id": "parse",
+            "name": "Parse",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                400,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "=https://evolutionapi.kywia.com/message/sendText/{{ $json.instance }}",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        },
+                        {
+                            "name": "apikey",
+                            "value": "2023bb74c1f985aa39f432fa165a27f4"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={\n  \"number\": \"{{ $json.phone }}\",\n  \"text\": \"Hola {{ $json.name }}! Recibí: {{ $json.content }}\"\n}"
+            },
+            "id": "send",
+            "name": "Send",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                600,
+                300
+            ]
+        }
+    ],
+    "connections": {
+        "Webhook": {
+            "main": [
+                [
+                    {
+                        "node": "Parse",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Parse": {
+            "main": [
+                [
+                    {
+                        "node": "Send",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    },
+    "settings": {
+        "executionOrder": "v1"
+    }
+}

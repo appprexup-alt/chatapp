@@ -1,0 +1,94 @@
+{
+    "name": "Alquimia Direct",
+    "nodes": [
+        {
+            "parameters": {
+                "httpMethod": "POST",
+                "path": "alquimia-test",
+                "options": {}
+            },
+            "id": "webhook",
+            "name": "Webhook",
+            "type": "n8n-nodes-base.webhook",
+            "typeVersion": 2,
+            "position": [
+                200,
+                300
+            ],
+            "webhookId": "alquimia-test"
+        },
+        {
+            "parameters": {
+                "jsCode": "const body = $input.first().json;\n\n// Extraer datos de cualquier formato\nlet phone = '';\nlet content = '';\nlet instance = '';\nlet name = 'Cliente';\n\n// Intentar extraer de diferentes formatos de Evolution API\ntry {\n  // Formato 1: Evolution API estándar\n  if (body.data && body.data.key) {\n    const jid = body.data.key.remoteJid || '';\n    if (jid.includes('@s.whatsapp.net')) {\n      phone = jid.replace('@s.whatsapp.net', '');\n    } else if (jid.includes('@')) {\n      phone = jid.split('@')[0];\n    }\n    const msg = body.data.message || {};\n    content = msg.conversation || msg.extendedTextMessage?.text || '';\n    name = body.data.pushName || 'Cliente';\n  }\n  \n  // Formato 2: Alternativo\n  if (!phone && body.remoteJid) {\n    phone = body.remoteJid.split('@')[0];\n  }\n  if (!phone && body.from) {\n    phone = body.from.replace(/\\D/g, '');\n  }\n  if (!content && body.body) {\n    content = body.body;\n  }\n  if (!content && body.message) {\n    content = typeof body.message === 'string' ? body.message : JSON.stringify(body.message);\n  }\n  \n  // Instance\n  instance = body.instance || body.instanceName || body.apikey || '';\n  \n  // Si no hay phone, usar un placeholder\n  if (!phone) {\n    phone = 'unknown';\n  }\n  if (!content) {\n    content = 'mensaje';\n  }\n  if (!instance) {\n    instance = 'default';\n  }\n  \n} catch(e) {\n  phone = 'error';\n  content = 'error parsing: ' + e.message;\n  instance = 'default';\n}\n\nreturn {\n  phone,\n  content,\n  instance,\n  name,\n  rawEvent: body.event || 'unknown',\n  timestamp: Date.now()\n};"
+            },
+            "id": "extract",
+            "name": "Extract Data",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                400,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "=https://evolutionapi.kywia.com/message/sendText/{{ $json.instance }}",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        },
+                        {
+                            "name": "apikey",
+                            "value": "2023bb74c1f985aa39f432fa165a27f4"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={\n  \"number\": \"{{ $json.phone }}\",\n  \"text\": \"¡Hola {{ $json.name }}! 🏡 Recibí tu mensaje: {{ $json.content.substring(0, 50) }}... Te respondo en breve.\"\n}",
+                "options": {
+                    "timeout": 10000
+                }
+            },
+            "id": "send",
+            "name": "Send Response",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                600,
+                300
+            ]
+        }
+    ],
+    "connections": {
+        "Webhook": {
+            "main": [
+                [
+                    {
+                        "node": "Extract Data",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Extract Data": {
+            "main": [
+                [
+                    {
+                        "node": "Send Response",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    },
+    "settings": {
+        "executionOrder": "v1"
+    }
+}

@@ -1,0 +1,93 @@
+{
+    "name": "Tools - Create Appointment v1",
+    "nodes": [
+        {
+            "parameters": {},
+            "id": "trigger",
+            "name": "Execute Workflow Trigger",
+            "type": "n8n-nodes-base.executeWorkflowTrigger",
+            "typeVersion": 1,
+            "position": [
+                250,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://byoalaoqyedwxpcugfhg.supabase.co/rest/v1/appointments",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "apikey",
+                            "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ5b2FsYW9xeWVkd3hwY3VnZmhnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk4Njc1OTUsImV4cCI6MjA4NTQ0MzU5NX0.fi63bqEDlFHkG88clPZPY20JFQ8idBLP_mAD4W2BFO8"
+                        },
+                        {
+                            "name": "Authorization",
+                            "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ5b2FsYW9xeWVkd3hwY3VnZmhnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk4Njc1OTUsImV4cCI6MjA4NTQ0MzU5NX0.fi63bqEDlFHkG88clPZPY20JFQ8idBLP_mAD4W2BFO8"
+                        },
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        },
+                        {
+                            "name": "Prefer",
+                            "value": "return=representation"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={\n  \"organization_id\": \"00000000-0000-0000-0000-000000000000\",\n  \"title\": \"{{ $json.title || 'Cita con cliente' }}\",\n  \"date\": \"{{ $json.date }}\",\n  \"lead_id\": {{ $json.lead_id ? '\"' + $json.lead_id + '\"' : 'null' }},\n  \"property_id\": {{ $json.property_id ? '\"' + $json.property_id + '\"' : 'null' }},\n  \"notes\": {{ $json.notes ? '\"' + $json.notes + '\"' : 'null' }},\n  \"status\": \"{{ $json.status || 'Pendiente' }}\",\n  \"assigned_to\": {{ $json.assigned_to ? '\"' + $json.assigned_to + '\"' : 'null' }}\n}"
+            },
+            "id": "create-apt",
+            "name": "Create Appointment",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                450,
+                300
+            ],
+            "alwaysOutputData": true,
+            "continueOnFail": true
+        },
+        {
+            "parameters": {
+                "jsCode": "const items = $input.all();\nlet result = \"Error al crear la cita.\";\n\ntry {\n  if (items.length > 0) {\n    const firstItem = items[0].json;\n    \n    if (firstItem.error || firstItem.message) {\n      result = \"Error al crear la cita: \" + JSON.stringify(firstItem);\n    } else {\n      // Handle both array and single object response\n      const apt = Array.isArray(firstItem) ? firstItem[0] : firstItem;\n      \n      if (apt && apt.id) {\n        result = JSON.stringify({\n          success: true,\n          appointment_id: apt.id,\n          title: apt.title,\n          date: apt.date,\n          status: apt.status,\n          message: 'Cita creada exitosamente para ' + apt.date\n        });\n      }\n    }\n  }\n} catch (e) {\n  result = \"Error al procesar la respuesta: \" + e.message;\n}\n\nreturn [\n  {\n    json: {\n      result: result\n    }\n  }\n];"
+            },
+            "id": "format",
+            "name": "Format Output",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                650,
+                300
+            ]
+        }
+    ],
+    "connections": {
+        "Execute Workflow Trigger": {
+            "main": [
+                [
+                    {
+                        "node": "Create Appointment",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Create Appointment": {
+            "main": [
+                [
+                    {
+                        "node": "Format Output",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    }
+}

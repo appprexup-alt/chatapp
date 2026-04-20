@@ -1,0 +1,1555 @@
+﻿{
+    "pipeline_stages":  {
+                            "required":  [
+                                             "id",
+                                             "label",
+                                             "created_at"
+                                         ],
+                            "properties":  {
+                                               "id":  {
+                                                          "default":  "gen_random_uuid()",
+                                                          "description":  "Note:\nThis is a Primary Key.\u003cpk/\u003e",
+                                                          "format":  "uuid",
+                                                          "type":  "string"
+                                                      },
+                                               "organization_id":  {
+                                                                       "description":  "Note:\nThis is a Foreign Key to `organizations.id`.\u003cfk table=\u0027organizations\u0027 column=\u0027id\u0027/\u003e",
+                                                                       "format":  "uuid",
+                                                                       "type":  "string"
+                                                                   },
+                                               "label":  {
+                                                             "format":  "text",
+                                                             "type":  "string"
+                                                         },
+                                               "color":  {
+                                                             "format":  "text",
+                                                             "type":  "string"
+                                                         },
+                                               "order":  {
+                                                             "format":  "integer",
+                                                             "type":  "integer"
+                                                         },
+                                               "created_at":  {
+                                                                  "default":  "timezone(\u0027utc\u0027::text, now())",
+                                                                  "format":  "timestamp with time zone",
+                                                                  "type":  "string"
+                                                              },
+                                               "visible":  {
+                                                               "default":  true,
+                                                               "format":  "boolean",
+                                                               "type":  "boolean"
+                                                           }
+                                           },
+                            "type":  "object"
+                        },
+    "properties":  {
+                       "required":  [
+                                        "id",
+                                        "created_at"
+                                    ],
+                       "properties":  {
+                                          "id":  {
+                                                     "default":  "gen_random_uuid()",
+                                                     "description":  "Note:\nThis is a Primary Key.\u003cpk/\u003e",
+                                                     "format":  "uuid",
+                                                     "type":  "string"
+                                                 },
+                                          "organization_id":  {
+                                                                  "description":  "Note:\nThis is a Foreign Key to `organizations.id`.\u003cfk table=\u0027organizations\u0027 column=\u0027id\u0027/\u003e",
+                                                                  "format":  "uuid",
+                                                                  "type":  "string"
+                                                              },
+                                          "developer_id":  {
+                                                               "description":  "Note:\nThis is a Foreign Key to `developers.id`.\u003cfk table=\u0027developers\u0027 column=\u0027id\u0027/\u003e",
+                                                               "format":  "uuid",
+                                                               "type":  "string"
+                                                           },
+                                          "project_name":  {
+                                                               "format":  "text",
+                                                               "type":  "string"
+                                                           },
+                                          "lot_number":  {
+                                                             "format":  "text",
+                                                             "type":  "string"
+                                                         },
+                                          "area":  {
+                                                       "format":  "numeric",
+                                                       "type":  "number"
+                                                   },
+                                          "price":  {
+                                                        "format":  "numeric",
+                                                        "type":  "number"
+                                                    },
+                                          "currency":  {
+                                                           "default":  "USD",
+                                                           "format":  "text",
+                                                           "type":  "string"
+                                                       },
+                                          "location":  {
+                                                           "format":  "text",
+                                                           "type":  "string"
+                                                       },
+                                          "status":  {
+                                                         "format":  "text",
+                                                         "type":  "string"
+                                                     },
+                                          "features":  {
+                                                           "format":  "text[]",
+                                                           "items":  {
+                                                                         "type":  "string"
+                                                                     },
+                                                           "type":  "array"
+                                                       },
+                                          "description":  {
+                                                              "format":  "text",
+                                                              "type":  "string"
+                                                          },
+                                          "images":  {
+                                                         "format":  "text[]",
+                                                         "items":  {
+                                                                       "type":  "string"
+                                                                   },
+                                                         "type":  "array"
+                                                     },
+                                          "created_at":  {
+                                                             "default":  "timezone(\u0027utc\u0027::text, now())",
+                                                             "format":  "timestamp with time zone",
+                                                             "type":  "string"
+                                                         }
+                                      },
+                       "type":  "object"
+                   },
+    "leads":  {
+                  "required":  [
+                                   "id",
+                                   "name",
+                                   "phone",
+                                   "created_at"
+                               ],
+                  "properties":  {
+                                     "id":  {
+                                                "default":  "gen_random_uuid()",
+                                                "description":  "Note:\nThis is a Primary Key.\u003cpk/\u003e",
+                                                "format":  "uuid",
+                                                "type":  "string"
+                                            },
+                                     "organization_id":  {
+                                                             "description":  "Note:\nThis is a Foreign Key to `organizations.id`.\u003cfk table=\u0027organizations\u0027 column=\u0027id\u0027/\u003e",
+                                                             "format":  "uuid",
+                                                             "type":  "string"
+                                                         },
+                                     "name":  {
+                                                  "format":  "text",
+                                                  "type":  "string"
+                                              },
+                                     "phone":  {
+                                                   "format":  "text",
+                                                   "type":  "string"
+                                               },
+                                     "email":  {
+                                                   "format":  "text",
+                                                   "type":  "string"
+                                               },
+                                     "status":  {
+                                                    "format":  "text",
+                                                    "type":  "string"
+                                                },
+                                     "source":  {
+                                                    "format":  "text",
+                                                    "type":  "string"
+                                                },
+                                     "interest":  {
+                                                      "format":  "text",
+                                                      "type":  "string"
+                                                  },
+                                     "budget":  {
+                                                    "format":  "numeric",
+                                                    "type":  "number"
+                                                },
+                                     "currency":  {
+                                                      "default":  "USD",
+                                                      "format":  "text",
+                                                      "type":  "string"
+                                                  },
+                                     "last_contact":  {
+                                                          "default":  "timezone(\u0027utc\u0027::text, now())",
+                                                          "format":  "timestamp with time zone",
+                                                          "type":  "string"
+                                                      },
+                                     "assigned_to":  {
+                                                         "description":  "Note:\nThis is a Foreign Key to `users.id`.\u003cfk table=\u0027users\u0027 column=\u0027id\u0027/\u003e",
+                                                         "format":  "uuid",
+                                                         "type":  "string"
+                                                     },
+                                     "notes":  {
+                                                   "format":  "text",
+                                                   "type":  "string"
+                                               },
+                                     "interested_property_ids":  {
+                                                                     "format":  "uuid[]",
+                                                                     "items":  {
+                                                                                   "type":  "string"
+                                                                               },
+                                                                     "type":  "array"
+                                                                 },
+                                     "chatbot_active":  {
+                                                            "default":  true,
+                                                            "format":  "boolean",
+                                                            "type":  "boolean"
+                                                        },
+                                     "created_at":  {
+                                                        "default":  "timezone(\u0027utc\u0027::text, now())",
+                                                        "format":  "timestamp with time zone",
+                                                        "type":  "string"
+                                                    },
+                                     "chatbot_enabled":  {
+                                                             "default":  true,
+                                                             "format":  "boolean",
+                                                             "type":  "boolean"
+                                                         },
+                                     "qualification_score":  {
+                                                                 "default":  0,
+                                                                 "format":  "integer",
+                                                                 "type":  "integer"
+                                                             },
+                                     "ai_analysis":  {
+                                                         "format":  "jsonb"
+                                                     },
+                                     "updated_at":  {
+                                                        "default":  "now()",
+                                                        "format":  "timestamp with time zone",
+                                                        "type":  "string"
+                                                    },
+                                     "pipeline_stage_id":  {
+                                                               "format":  "uuid",
+                                                               "type":  "string"
+                                                           },
+                                     "project_id":  {
+                                                        "description":  "Note:\nThis is a Foreign Key to `developers.id`.\u003cfk table=\u0027developers\u0027 column=\u0027id\u0027/\u003e",
+                                                        "format":  "uuid",
+                                                        "type":  "string"
+                                                    },
+                                     "tags":  {
+                                                  "format":  "text[]",
+                                                  "items":  {
+                                                                "type":  "string"
+                                                            },
+                                                  "type":  "array"
+                                              },
+                                     "pipeline_stage_changed_at":  {
+                                                                       "format":  "timestamp with time zone",
+                                                                       "type":  "string"
+                                                                   }
+                                 },
+                  "type":  "object"
+              },
+    "developers":  {
+                       "required":  [
+                                        "id",
+                                        "name",
+                                        "created_at"
+                                    ],
+                       "properties":  {
+                                          "id":  {
+                                                     "default":  "gen_random_uuid()",
+                                                     "description":  "Note:\nThis is a Primary Key.\u003cpk/\u003e",
+                                                     "format":  "uuid",
+                                                     "type":  "string"
+                                                 },
+                                          "organization_id":  {
+                                                                  "description":  "Note:\nThis is a Foreign Key to `organizations.id`.\u003cfk table=\u0027organizations\u0027 column=\u0027id\u0027/\u003e",
+                                                                  "format":  "uuid",
+                                                                  "type":  "string"
+                                                              },
+                                          "name":  {
+                                                       "format":  "text",
+                                                       "type":  "string"
+                                                   },
+                                          "developer_name":  {
+                                                                 "format":  "text",
+                                                                 "type":  "string"
+                                                             },
+                                          "contact_name":  {
+                                                               "format":  "text",
+                                                               "type":  "string"
+                                                           },
+                                          "ruc":  {
+                                                      "format":  "text",
+                                                      "type":  "string"
+                                                  },
+                                          "phone":  {
+                                                        "format":  "text",
+                                                        "type":  "string"
+                                                    },
+                                          "email":  {
+                                                        "format":  "text",
+                                                        "type":  "string"
+                                                    },
+                                          "address":  {
+                                                          "format":  "text",
+                                                          "type":  "string"
+                                                      },
+                                          "comments":  {
+                                                           "format":  "text",
+                                                           "type":  "string"
+                                                       },
+                                          "created_at":  {
+                                                             "default":  "timezone(\u0027utc\u0027::text, now())",
+                                                             "format":  "timestamp with time zone",
+                                                             "type":  "string"
+                                                         }
+                                      },
+                       "type":  "object"
+                   },
+    "clients":  {
+                    "required":  [
+                                     "id",
+                                     "name",
+                                     "phone",
+                                     "created_at"
+                                 ],
+                    "properties":  {
+                                       "id":  {
+                                                  "default":  "gen_random_uuid()",
+                                                  "description":  "Note:\nThis is a Primary Key.\u003cpk/\u003e",
+                                                  "format":  "uuid",
+                                                  "type":  "string"
+                                              },
+                                       "organization_id":  {
+                                                               "description":  "Note:\nThis is a Foreign Key to `organizations.id`.\u003cfk table=\u0027organizations\u0027 column=\u0027id\u0027/\u003e",
+                                                               "format":  "uuid",
+                                                               "type":  "string"
+                                                           },
+                                       "name":  {
+                                                    "format":  "text",
+                                                    "type":  "string"
+                                                },
+                                       "phone":  {
+                                                     "format":  "text",
+                                                     "type":  "string"
+                                                 },
+                                       "email":  {
+                                                     "format":  "text",
+                                                     "type":  "string"
+                                                 },
+                                       "status":  {
+                                                      "format":  "text",
+                                                      "type":  "string"
+                                                  },
+                                       "origin":  {
+                                                      "format":  "text",
+                                                      "type":  "string"
+                                                  },
+                                       "notes":  {
+                                                     "format":  "text",
+                                                     "type":  "string"
+                                                 },
+                                       "interested_property_ids":  {
+                                                                       "format":  "uuid[]",
+                                                                       "items":  {
+                                                                                     "type":  "string"
+                                                                                 },
+                                                                       "type":  "array"
+                                                                   },
+                                       "created_at":  {
+                                                          "default":  "timezone(\u0027utc\u0027::text, now())",
+                                                          "format":  "timestamp with time zone",
+                                                          "type":  "string"
+                                                      },
+                                       "birth_date":  {
+                                                          "format":  "date",
+                                                          "type":  "string"
+                                                      }
+                                   },
+                    "type":  "object"
+                },
+    "tasks":  {
+                  "required":  [
+                                   "id",
+                                   "title",
+                                   "created_at"
+                               ],
+                  "properties":  {
+                                     "id":  {
+                                                "default":  "gen_random_uuid()",
+                                                "description":  "Note:\nThis is a Primary Key.\u003cpk/\u003e",
+                                                "format":  "uuid",
+                                                "type":  "string"
+                                            },
+                                     "organization_id":  {
+                                                             "description":  "Note:\nThis is a Foreign Key to `organizations.id`.\u003cfk table=\u0027organizations\u0027 column=\u0027id\u0027/\u003e",
+                                                             "format":  "uuid",
+                                                             "type":  "string"
+                                                         },
+                                     "title":  {
+                                                   "format":  "text",
+                                                   "type":  "string"
+                                               },
+                                     "due_date":  {
+                                                      "format":  "timestamp with time zone",
+                                                      "type":  "string"
+                                                  },
+                                     "status":  {
+                                                    "format":  "text",
+                                                    "type":  "string"
+                                                },
+                                     "assigned_to":  {
+                                                         "description":  "Note:\nThis is a Foreign Key to `users.id`.\u003cfk table=\u0027users\u0027 column=\u0027id\u0027/\u003e",
+                                                         "format":  "uuid",
+                                                         "type":  "string"
+                                                     },
+                                     "related_to":  {
+                                                        "format":  "text",
+                                                        "type":  "string"
+                                                    },
+                                     "lead_id":  {
+                                                     "description":  "Note:\nThis is a Foreign Key to `leads.id`.\u003cfk table=\u0027leads\u0027 column=\u0027id\u0027/\u003e",
+                                                     "format":  "uuid",
+                                                     "type":  "string"
+                                                 },
+                                     "comments":  {
+                                                      "format":  "text",
+                                                      "type":  "string"
+                                                  },
+                                     "created_at":  {
+                                                        "default":  "timezone(\u0027utc\u0027::text, now())",
+                                                        "format":  "timestamp with time zone",
+                                                        "type":  "string"
+                                                    }
+                                 },
+                  "type":  "object"
+              },
+    "quick_replies":  {
+                          "description":  "Stores frequent/template messages that can be quickly sent",
+                          "required":  [
+                                           "id",
+                                           "organization_id",
+                                           "name",
+                                           "type"
+                                       ],
+                          "properties":  {
+                                             "id":  {
+                                                        "default":  "gen_random_uuid()",
+                                                        "description":  "Note:\nThis is a Primary Key.\u003cpk/\u003e",
+                                                        "format":  "uuid",
+                                                        "type":  "string"
+                                                    },
+                                             "organization_id":  {
+                                                                     "description":  "Note:\nThis is a Foreign Key to `organizations.id`.\u003cfk table=\u0027organizations\u0027 column=\u0027id\u0027/\u003e",
+                                                                     "format":  "uuid",
+                                                                     "type":  "string"
+                                                                 },
+                                             "name":  {
+                                                          "format":  "text",
+                                                          "type":  "string"
+                                                      },
+                                             "type":  {
+                                                          "default":  "text",
+                                                          "format":  "text",
+                                                          "type":  "string"
+                                                      },
+                                             "content":  {
+                                                             "format":  "text",
+                                                             "type":  "string"
+                                                         },
+                                             "media_url":  {
+                                                               "format":  "text",
+                                                               "type":  "string"
+                                                           },
+                                             "media_filename":  {
+                                                                    "format":  "text",
+                                                                    "type":  "string"
+                                                                },
+                                             "sort_order":  {
+                                                                "default":  0,
+                                                                "format":  "integer",
+                                                                "type":  "integer"
+                                                            },
+                                             "created_at":  {
+                                                                "default":  "now()",
+                                                                "format":  "timestamp with time zone",
+                                                                "type":  "string"
+                                                            }
+                                         },
+                          "type":  "object"
+                      },
+    "client_automation_logs":  {
+                                   "required":  [
+                                                    "id",
+                                                    "organization_id",
+                                                    "automation_id",
+                                                    "client_id"
+                                                ],
+                                   "properties":  {
+                                                      "id":  {
+                                                                 "default":  "extensions.uuid_generate_v4()",
+                                                                 "description":  "Note:\nThis is a Primary Key.\u003cpk/\u003e",
+                                                                 "format":  "uuid",
+                                                                 "type":  "string"
+                                                             },
+                                                      "organization_id":  {
+                                                                              "description":  "Note:\nThis is a Foreign Key to `organizations.id`.\u003cfk table=\u0027organizations\u0027 column=\u0027id\u0027/\u003e",
+                                                                              "format":  "uuid",
+                                                                              "type":  "string"
+                                                                          },
+                                                      "automation_id":  {
+                                                                            "description":  "Note:\nThis is a Foreign Key to `client_automations.id`.\u003cfk table=\u0027client_automations\u0027 column=\u0027id\u0027/\u003e",
+                                                                            "format":  "uuid",
+                                                                            "type":  "string"
+                                                                        },
+                                                      "client_id":  {
+                                                                        "description":  "Note:\nThis is a Foreign Key to `clients.id`.\u003cfk table=\u0027clients\u0027 column=\u0027id\u0027/\u003e",
+                                                                        "format":  "uuid",
+                                                                        "type":  "string"
+                                                                    },
+                                                      "sent_at":  {
+                                                                      "default":  "now()",
+                                                                      "format":  "timestamp with time zone",
+                                                                      "type":  "string"
+                                                                  },
+                                                      "status":  {
+                                                                     "default":  "sent",
+                                                                     "format":  "text",
+                                                                     "type":  "string"
+                                                                 },
+                                                      "error_message":  {
+                                                                            "format":  "text",
+                                                                            "type":  "string"
+                                                                        }
+                                                  },
+                                   "type":  "object"
+                               },
+    "transactions":  {
+                         "required":  [
+                                          "id",
+                                          "description",
+                                          "amount"
+                                      ],
+                         "properties":  {
+                                            "id":  {
+                                                       "default":  "gen_random_uuid()",
+                                                       "description":  "Note:\nThis is a Primary Key.\u003cpk/\u003e",
+                                                       "format":  "uuid",
+                                                       "type":  "string"
+                                                   },
+                                            "organization_id":  {
+                                                                    "description":  "Note:\nThis is a Foreign Key to `organizations.id`.\u003cfk table=\u0027organizations\u0027 column=\u0027id\u0027/\u003e",
+                                                                    "format":  "uuid",
+                                                                    "type":  "string"
+                                                                },
+                                            "description":  {
+                                                                "format":  "text",
+                                                                "type":  "string"
+                                                            },
+                                            "type":  {
+                                                         "format":  "text",
+                                                         "type":  "string"
+                                                     },
+                                            "amount":  {
+                                                           "default":  0,
+                                                           "format":  "numeric",
+                                                           "type":  "number"
+                                                       },
+                                            "currency":  {
+                                                             "default":  "PEN",
+                                                             "format":  "text",
+                                                             "type":  "string"
+                                                         },
+                                            "date":  {
+                                                         "default":  "CURRENT_DATE",
+                                                         "format":  "date",
+                                                         "type":  "string"
+                                                     },
+                                            "category":  {
+                                                             "format":  "text",
+                                                             "type":  "string"
+                                                         },
+                                            "sale_id":  {
+                                                            "description":  "Note:\nThis is a Foreign Key to `sales.id`.\u003cfk table=\u0027sales\u0027 column=\u0027id\u0027/\u003e",
+                                                            "format":  "uuid",
+                                                            "type":  "string"
+                                                        },
+                                            "notes":  {
+                                                          "format":  "text",
+                                                          "type":  "string"
+                                                      },
+                                            "created_at":  {
+                                                               "default":  "timezone(\u0027utc\u0027::text, now())",
+                                                               "format":  "timestamp with time zone",
+                                                               "type":  "string"
+                                                           }
+                                        },
+                         "type":  "object"
+                     },
+    "appointments":  {
+                         "required":  [
+                                          "id",
+                                          "title",
+                                          "created_at"
+                                      ],
+                         "properties":  {
+                                            "id":  {
+                                                       "default":  "gen_random_uuid()",
+                                                       "description":  "Note:\nThis is a Primary Key.\u003cpk/\u003e",
+                                                       "format":  "uuid",
+                                                       "type":  "string"
+                                                   },
+                                            "organization_id":  {
+                                                                    "description":  "Note:\nThis is a Foreign Key to `organizations.id`.\u003cfk table=\u0027organizations\u0027 column=\u0027id\u0027/\u003e",
+                                                                    "format":  "uuid",
+                                                                    "type":  "string"
+                                                                },
+                                            "title":  {
+                                                          "format":  "text",
+                                                          "type":  "string"
+                                                      },
+                                            "date":  {
+                                                         "format":  "timestamp with time zone",
+                                                         "type":  "string"
+                                                     },
+                                            "lead_id":  {
+                                                            "description":  "Note:\nThis is a Foreign Key to `leads.id`.\u003cfk table=\u0027leads\u0027 column=\u0027id\u0027/\u003e",
+                                                            "format":  "uuid",
+                                                            "type":  "string"
+                                                        },
+                                            "property_id":  {
+                                                                "description":  "Note:\nThis is a Foreign Key to `properties.id`.\u003cfk table=\u0027properties\u0027 column=\u0027id\u0027/\u003e",
+                                                                "format":  "uuid",
+                                                                "type":  "string"
+                                                            },
+                                            "notes":  {
+                                                          "format":  "text",
+                                                          "type":  "string"
+                                                      },
+                                            "status":  {
+                                                           "format":  "text",
+                                                           "type":  "string"
+                                                       },
+                                            "assigned_to":  {
+                                                                "description":  "Note:\nThis is a Foreign Key to `users.id`.\u003cfk table=\u0027users\u0027 column=\u0027id\u0027/\u003e",
+                                                                "format":  "uuid",
+                                                                "type":  "string"
+                                                            },
+                                            "created_at":  {
+                                                               "default":  "timezone(\u0027utc\u0027::text, now())",
+                                                               "format":  "timestamp with time zone",
+                                                               "type":  "string"
+                                                           }
+                                        },
+                         "type":  "object"
+                     },
+    "client_automations":  {
+                               "required":  [
+                                                "id",
+                                                "organization_id",
+                                                "name",
+                                                "trigger_type",
+                                                "content"
+                                            ],
+                               "properties":  {
+                                                  "id":  {
+                                                             "default":  "extensions.uuid_generate_v4()",
+                                                             "description":  "Note:\nThis is a Primary Key.\u003cpk/\u003e",
+                                                             "format":  "uuid",
+                                                             "type":  "string"
+                                                         },
+                                                  "organization_id":  {
+                                                                          "description":  "Note:\nThis is a Foreign Key to `organizations.id`.\u003cfk table=\u0027organizations\u0027 column=\u0027id\u0027/\u003e",
+                                                                          "format":  "uuid",
+                                                                          "type":  "string"
+                                                                      },
+                                                  "name":  {
+                                                               "format":  "text",
+                                                               "type":  "string"
+                                                           },
+                                                  "trigger_type":  {
+                                                                       "format":  "text",
+                                                                       "type":  "string"
+                                                                   },
+                                                  "content":  {
+                                                                  "format":  "text",
+                                                                  "type":  "string"
+                                                              },
+                                                  "media_url":  {
+                                                                    "format":  "text",
+                                                                    "type":  "string"
+                                                                },
+                                                  "media_type":  {
+                                                                     "default":  "text",
+                                                                     "format":  "text",
+                                                                     "type":  "string"
+                                                                 },
+                                                  "is_active":  {
+                                                                    "default":  true,
+                                                                    "format":  "boolean",
+                                                                    "type":  "boolean"
+                                                                },
+                                                  "time_to_send":  {
+                                                                       "default":  "10:00:00",
+                                                                       "format":  "time without time zone",
+                                                                       "type":  "string"
+                                                                   },
+                                                  "created_at":  {
+                                                                     "default":  "now()",
+                                                                     "format":  "timestamp with time zone",
+                                                                     "type":  "string"
+                                                                 }
+                                              },
+                               "type":  "object"
+                           },
+    "other_incomes":  {
+                          "required":  [
+                                           "id",
+                                           "description",
+                                           "amount"
+                                       ],
+                          "properties":  {
+                                             "id":  {
+                                                        "default":  "gen_random_uuid()",
+                                                        "description":  "Note:\nThis is a Primary Key.\u003cpk/\u003e",
+                                                        "format":  "uuid",
+                                                        "type":  "string"
+                                                    },
+                                             "organization_id":  {
+                                                                     "description":  "Note:\nThis is a Foreign Key to `organizations.id`.\u003cfk table=\u0027organizations\u0027 column=\u0027id\u0027/\u003e",
+                                                                     "format":  "uuid",
+                                                                     "type":  "string"
+                                                                 },
+                                             "description":  {
+                                                                 "format":  "text",
+                                                                 "type":  "string"
+                                                             },
+                                             "amount":  {
+                                                            "default":  0,
+                                                            "format":  "numeric",
+                                                            "type":  "number"
+                                                        },
+                                             "currency":  {
+                                                              "default":  "USD",
+                                                              "format":  "text",
+                                                              "type":  "string"
+                                                          },
+                                             "date":  {
+                                                          "default":  "CURRENT_DATE",
+                                                          "format":  "date",
+                                                          "type":  "string"
+                                                      },
+                                             "category":  {
+                                                              "format":  "text",
+                                                              "type":  "string"
+                                                          },
+                                             "property_id":  {
+                                                                 "description":  "Note:\nThis is a Foreign Key to `properties.id`.\u003cfk table=\u0027properties\u0027 column=\u0027id\u0027/\u003e",
+                                                                 "format":  "uuid",
+                                                                 "type":  "string"
+                                                             },
+                                             "created_at":  {
+                                                                "default":  "timezone(\u0027utc\u0027::text, now())",
+                                                                "format":  "timestamp with time zone",
+                                                                "type":  "string"
+                                                            }
+                                         },
+                          "type":  "object"
+                      },
+    "message_queue":  {
+                          "required":  [
+                                           "id",
+                                           "phone",
+                                           "content"
+                                       ],
+                          "properties":  {
+                                             "id":  {
+                                                        "default":  "gen_random_uuid()",
+                                                        "description":  "Note:\nThis is a Primary Key.\u003cpk/\u003e",
+                                                        "format":  "uuid",
+                                                        "type":  "string"
+                                                    },
+                                             "phone":  {
+                                                           "format":  "text",
+                                                           "type":  "string"
+                                                       },
+                                             "content":  {
+                                                             "format":  "text",
+                                                             "type":  "string"
+                                                         },
+                                             "lead_id":  {
+                                                             "description":  "Note:\nThis is a Foreign Key to `leads.id`.\u003cfk table=\u0027leads\u0027 column=\u0027id\u0027/\u003e",
+                                                             "format":  "uuid",
+                                                             "type":  "string"
+                                                         },
+                                             "status":  {
+                                                            "default":  "pending",
+                                                            "format":  "text",
+                                                            "type":  "string"
+                                                        },
+                                             "created_at":  {
+                                                                "default":  "now()",
+                                                                "format":  "timestamp with time zone",
+                                                                "type":  "string"
+                                                            }
+                                         },
+                          "type":  "object"
+                      },
+    "campaigns":  {
+                      "required":  [
+                                       "id",
+                                       "organization_id",
+                                       "title"
+                                   ],
+                      "properties":  {
+                                         "id":  {
+                                                    "default":  "gen_random_uuid()",
+                                                    "description":  "Note:\nThis is a Primary Key.\u003cpk/\u003e",
+                                                    "format":  "uuid",
+                                                    "type":  "string"
+                                                },
+                                         "organization_id":  {
+                                                                 "format":  "uuid",
+                                                                 "type":  "string"
+                                                             },
+                                         "title":  {
+                                                       "format":  "text",
+                                                       "type":  "string"
+                                                   },
+                                         "description":  {
+                                                             "format":  "text",
+                                                             "type":  "string"
+                                                         },
+                                         "content":  {
+                                                         "format":  "text",
+                                                         "type":  "string"
+                                                     },
+                                         "media_url":  {
+                                                           "format":  "text",
+                                                           "type":  "string"
+                                                       },
+                                         "media_type":  {
+                                                            "format":  "text",
+                                                            "type":  "string"
+                                                        },
+                                         "filters":  {
+                                                         "format":  "jsonb"
+                                                     },
+                                         "schedule_date":  {
+                                                               "format":  "timestamp with time zone",
+                                                               "type":  "string"
+                                                           },
+                                         "delay_seconds":  {
+                                                               "default":  5,
+                                                               "format":  "integer",
+                                                               "type":  "integer"
+                                                           },
+                                         "status":  {
+                                                        "default":  "draft",
+                                                        "format":  "text",
+                                                        "type":  "string"
+                                                    },
+                                         "stats":  {
+                                                       "format":  "jsonb"
+                                                   },
+                                         "created_at":  {
+                                                            "default":  "now()",
+                                                            "format":  "timestamp with time zone",
+                                                            "type":  "string"
+                                                        },
+                                         "created_by":  {
+                                                            "format":  "uuid",
+                                                            "type":  "string"
+                                                        }
+                                     },
+                      "type":  "object"
+                  },
+    "sales":  {
+                  "required":  [
+                                   "id",
+                                   "amount"
+                               ],
+                  "properties":  {
+                                     "id":  {
+                                                "default":  "gen_random_uuid()",
+                                                "description":  "Note:\nThis is a Primary Key.\u003cpk/\u003e",
+                                                "format":  "uuid",
+                                                "type":  "string"
+                                            },
+                                     "organization_id":  {
+                                                             "description":  "Note:\nThis is a Foreign Key to `organizations.id`.\u003cfk table=\u0027organizations\u0027 column=\u0027id\u0027/\u003e",
+                                                             "format":  "uuid",
+                                                             "type":  "string"
+                                                         },
+                                     "property_id":  {
+                                                         "description":  "Note:\nThis is a Foreign Key to `properties.id`.\u003cfk table=\u0027properties\u0027 column=\u0027id\u0027/\u003e",
+                                                         "format":  "uuid",
+                                                         "type":  "string"
+                                                     },
+                                     "lead_id":  {
+                                                     "format":  "uuid",
+                                                     "type":  "string"
+                                                 },
+                                     "financial_client_id":  {
+                                                                 "description":  "Note:\nThis is a Foreign Key to `financial_clients.id`.\u003cfk table=\u0027financial_clients\u0027 column=\u0027id\u0027/\u003e",
+                                                                 "format":  "uuid",
+                                                                 "type":  "string"
+                                                             },
+                                     "client_name":  {
+                                                         "format":  "text",
+                                                         "type":  "string"
+                                                     },
+                                     "agent_id":  {
+                                                      "description":  "Note:\nThis is a Foreign Key to `users.id`.\u003cfk table=\u0027users\u0027 column=\u0027id\u0027/\u003e",
+                                                      "format":  "uuid",
+                                                      "type":  "string"
+                                                  },
+                                     "amount":  {
+                                                    "default":  0,
+                                                    "format":  "numeric",
+                                                    "type":  "number"
+                                                },
+                                     "currency":  {
+                                                      "default":  "USD",
+                                                      "format":  "text",
+                                                      "type":  "string"
+                                                  },
+                                     "commissions":  {
+                                                         "format":  "jsonb"
+                                                     },
+                                     "status":  {
+                                                    "default":  "completed",
+                                                    "format":  "text",
+                                                    "type":  "string"
+                                                },
+                                     "date":  {
+                                                  "default":  "CURRENT_DATE",
+                                                  "format":  "date",
+                                                  "type":  "string"
+                                              },
+                                     "notes":  {
+                                                   "format":  "text",
+                                                   "type":  "string"
+                                               },
+                                     "created_at":  {
+                                                        "default":  "timezone(\u0027utc\u0027::text, now())",
+                                                        "format":  "timestamp with time zone",
+                                                        "type":  "string"
+                                                    }
+                                 },
+                  "type":  "object"
+              },
+    "whatsapp_sessions":  {
+                              "required":  [
+                                               "id",
+                                               "data"
+                                           ],
+                              "properties":  {
+                                                 "id":  {
+                                                            "description":  "Note:\nThis is a Primary Key.\u003cpk/\u003e",
+                                                            "format":  "text",
+                                                            "type":  "string"
+                                                        },
+                                                 "data":  {
+                                                              "format":  "jsonb"
+                                                          },
+                                                 "organization_id":  {
+                                                                         "description":  "Note:\nThis is a Foreign Key to `organizations.id`.\u003cfk table=\u0027organizations\u0027 column=\u0027id\u0027/\u003e",
+                                                                         "format":  "uuid",
+                                                                         "type":  "string"
+                                                                     },
+                                                 "created_at":  {
+                                                                    "default":  "now()",
+                                                                    "format":  "timestamp with time zone",
+                                                                    "type":  "string"
+                                                                },
+                                                 "updated_at":  {
+                                                                    "default":  "now()",
+                                                                    "format":  "timestamp with time zone",
+                                                                    "type":  "string"
+                                                                }
+                                             },
+                              "type":  "object"
+                          },
+    "organizations":  {
+                          "required":  [
+                                           "id",
+                                           "name",
+                                           "created_at"
+                                       ],
+                          "properties":  {
+                                             "id":  {
+                                                        "default":  "gen_random_uuid()",
+                                                        "description":  "Note:\nThis is a Primary Key.\u003cpk/\u003e",
+                                                        "format":  "uuid",
+                                                        "type":  "string"
+                                                    },
+                                             "name":  {
+                                                          "format":  "text",
+                                                          "type":  "string"
+                                                      },
+                                             "plan":  {
+                                                          "format":  "text",
+                                                          "type":  "string"
+                                                      },
+                                             "status":  {
+                                                            "default":  "active",
+                                                            "format":  "text",
+                                                            "type":  "string"
+                                                        },
+                                             "logo_url":  {
+                                                              "format":  "text",
+                                                              "type":  "string"
+                                                          },
+                                             "slogan":  {
+                                                            "format":  "text",
+                                                            "type":  "string"
+                                                        },
+                                             "created_at":  {
+                                                                "default":  "timezone(\u0027utc\u0027::text, now())",
+                                                                "format":  "timestamp with time zone",
+                                                                "type":  "string"
+                                                            },
+                                             "max_users":  {
+                                                               "default":  5,
+                                                               "format":  "integer",
+                                                               "type":  "integer"
+                                                           },
+                                             "expiry_date":  {
+                                                                 "format":  "timestamp with time zone",
+                                                                 "type":  "string"
+                                                             },
+                                             "contact_email":  {
+                                                                   "format":  "text",
+                                                                   "type":  "string"
+                                                               }
+                                         },
+                          "type":  "object"
+                      },
+    "messages":  {
+                     "required":  [
+                                      "id",
+                                      "content",
+                                      "created_at"
+                                  ],
+                     "properties":  {
+                                        "id":  {
+                                                   "default":  "gen_random_uuid()",
+                                                   "description":  "Note:\nThis is a Primary Key.\u003cpk/\u003e",
+                                                   "format":  "uuid",
+                                                   "type":  "string"
+                                               },
+                                        "organization_id":  {
+                                                                "description":  "Note:\nThis is a Foreign Key to `organizations.id`.\u003cfk table=\u0027organizations\u0027 column=\u0027id\u0027/\u003e",
+                                                                "format":  "uuid",
+                                                                "type":  "string"
+                                                            },
+                                        "lead_id":  {
+                                                        "description":  "Note:\nThis is a Foreign Key to `leads.id`.\u003cfk table=\u0027leads\u0027 column=\u0027id\u0027/\u003e",
+                                                        "format":  "uuid",
+                                                        "type":  "string"
+                                                    },
+                                        "content":  {
+                                                        "format":  "text",
+                                                        "type":  "string"
+                                                    },
+                                        "sender":  {
+                                                       "format":  "text",
+                                                       "type":  "string"
+                                                   },
+                                        "created_at":  {
+                                                           "default":  "timezone(\u0027utc\u0027::text, now())",
+                                                           "format":  "timestamp with time zone",
+                                                           "type":  "string"
+                                                       },
+                                        "media_type":  {
+                                                           "default":  "text",
+                                                           "description":  "Message type: text, image, audio, video, document",
+                                                           "format":  "text",
+                                                           "type":  "string"
+                                                       },
+                                        "media_url":  {
+                                                          "description":  "Public URL to media file in Supabase Storage",
+                                                          "format":  "text",
+                                                          "type":  "string"
+                                                      },
+                                        "media_filename":  {
+                                                               "description":  "Original filename for document attachments",
+                                                               "format":  "text",
+                                                               "type":  "string"
+                                                           }
+                                    },
+                     "type":  "object"
+                 },
+    "chat_sessions":  {
+                          "required":  [
+                                           "id",
+                                           "phone"
+                                       ],
+                          "properties":  {
+                                             "id":  {
+                                                        "default":  "gen_random_uuid()",
+                                                        "description":  "Note:\nThis is a Primary Key.\u003cpk/\u003e",
+                                                        "format":  "uuid",
+                                                        "type":  "string"
+                                                    },
+                                             "organization_id":  {
+                                                                     "description":  "Note:\nThis is a Foreign Key to `organizations.id`.\u003cfk table=\u0027organizations\u0027 column=\u0027id\u0027/\u003e",
+                                                                     "format":  "uuid",
+                                                                     "type":  "string"
+                                                                 },
+                                             "lead_id":  {
+                                                             "description":  "Note:\nThis is a Foreign Key to `leads.id`.\u003cfk table=\u0027leads\u0027 column=\u0027id\u0027/\u003e",
+                                                             "format":  "uuid",
+                                                             "type":  "string"
+                                                         },
+                                             "phone":  {
+                                                           "format":  "text",
+                                                           "type":  "string"
+                                                       },
+                                             "messages":  {
+                                                              "format":  "jsonb"
+                                                          },
+                                             "last_activity":  {
+                                                                   "default":  "now()",
+                                                                   "format":  "timestamp with time zone",
+                                                                   "type":  "string"
+                                                               },
+                                             "processing":  {
+                                                                "default":  false,
+                                                                "format":  "boolean",
+                                                                "type":  "boolean"
+                                                            },
+                                             "created_at":  {
+                                                                "default":  "now()",
+                                                                "format":  "timestamp with time zone",
+                                                                "type":  "string"
+                                                            }
+                                         },
+                          "type":  "object"
+                      },
+    "n8n_chat_histories":  {
+                               "required":  [
+                                                "id",
+                                                "session_id",
+                                                "message"
+                                            ],
+                               "properties":  {
+                                                  "id":  {
+                                                             "description":  "Note:\nThis is a Primary Key.\u003cpk/\u003e",
+                                                             "format":  "integer",
+                                                             "type":  "integer"
+                                                         },
+                                                  "session_id":  {
+                                                                     "format":  "character varying",
+                                                                     "maxLength":  255,
+                                                                     "type":  "string"
+                                                                 },
+                                                  "message":  {
+                                                                  "format":  "jsonb"
+                                                              }
+                                              },
+                               "type":  "object"
+                           },
+    "followup_campaigns":  {
+                               "required":  [
+                                                "id",
+                                                "trigger_stage_id",
+                                                "delay_hours"
+                                            ],
+                               "properties":  {
+                                                  "id":  {
+                                                             "default":  "gen_random_uuid()",
+                                                             "description":  "Note:\nThis is a Primary Key.\u003cpk/\u003e",
+                                                             "format":  "uuid",
+                                                             "type":  "string"
+                                                         },
+                                                  "organization_id":  {
+                                                                          "format":  "uuid",
+                                                                          "type":  "string"
+                                                                      },
+                                                  "name":  {
+                                                               "format":  "text",
+                                                               "type":  "string"
+                                                           },
+                                                  "trigger_stage_id":  {
+                                                                           "format":  "text",
+                                                                           "type":  "string"
+                                                                       },
+                                                  "delay_hours":  {
+                                                                      "format":  "integer",
+                                                                      "type":  "integer"
+                                                                  },
+                                                  "content":  {
+                                                                  "format":  "text",
+                                                                  "type":  "string"
+                                                              },
+                                                  "media_url":  {
+                                                                    "format":  "text",
+                                                                    "type":  "string"
+                                                                },
+                                                  "media_type":  {
+                                                                     "format":  "text",
+                                                                     "type":  "string"
+                                                                 },
+                                                  "is_active":  {
+                                                                    "default":  true,
+                                                                    "format":  "boolean",
+                                                                    "type":  "boolean"
+                                                                },
+                                                  "created_at":  {
+                                                                     "default":  "now()",
+                                                                     "format":  "timestamp with time zone",
+                                                                     "type":  "string"
+                                                                 },
+                                                  "updated_at":  {
+                                                                     "default":  "now()",
+                                                                     "format":  "timestamp with time zone",
+                                                                     "type":  "string"
+                                                                 },
+                                                  "tags":  {
+                                                               "format":  "text[]",
+                                                               "items":  {
+                                                                             "type":  "string"
+                                                                         },
+                                                               "type":  "array"
+                                                           },
+                                                  "trigger_field":  {
+                                                                        "default":  "created_at",
+                                                                        "format":  "text",
+                                                                        "type":  "string"
+                                                                    },
+                                                  "trigger_type":  {
+                                                                       "default":  "time_delay",
+                                                                       "format":  "text",
+                                                                       "type":  "string"
+                                                                   }
+                                              },
+                               "type":  "object"
+                           },
+    "financial_clients":  {
+                              "required":  [
+                                               "id",
+                                               "name"
+                                           ],
+                              "properties":  {
+                                                 "id":  {
+                                                            "default":  "gen_random_uuid()",
+                                                            "description":  "Note:\nThis is a Primary Key.\u003cpk/\u003e",
+                                                            "format":  "uuid",
+                                                            "type":  "string"
+                                                        },
+                                                 "organization_id":  {
+                                                                         "description":  "Note:\nThis is a Foreign Key to `organizations.id`.\u003cfk table=\u0027organizations\u0027 column=\u0027id\u0027/\u003e",
+                                                                         "format":  "uuid",
+                                                                         "type":  "string"
+                                                                     },
+                                                 "name":  {
+                                                              "format":  "text",
+                                                              "type":  "string"
+                                                          },
+                                                 "document":  {
+                                                                  "format":  "text",
+                                                                  "type":  "string"
+                                                              },
+                                                 "address":  {
+                                                                 "format":  "text",
+                                                                 "type":  "string"
+                                                             },
+                                                 "civil_status":  {
+                                                                      "format":  "text",
+                                                                      "type":  "string"
+                                                                  },
+                                                 "phone":  {
+                                                               "format":  "text",
+                                                               "type":  "string"
+                                                           },
+                                                 "email":  {
+                                                               "format":  "text",
+                                                               "type":  "string"
+                                                           },
+                                                 "birth_date":  {
+                                                                    "format":  "date",
+                                                                    "type":  "string"
+                                                                },
+                                                 "occupation":  {
+                                                                    "format":  "text",
+                                                                    "type":  "string"
+                                                                },
+                                                 "has_children":  {
+                                                                      "default":  false,
+                                                                      "format":  "boolean",
+                                                                      "type":  "boolean"
+                                                                  },
+                                                 "number_of_children":  {
+                                                                            "default":  0,
+                                                                            "format":  "integer",
+                                                                            "type":  "integer"
+                                                                        },
+                                                 "children_details":  {
+                                                                          "format":  "text",
+                                                                          "type":  "string"
+                                                                      },
+                                                 "spouse_name":  {
+                                                                     "format":  "text",
+                                                                     "type":  "string"
+                                                                 },
+                                                 "spouse_document":  {
+                                                                         "format":  "text",
+                                                                         "type":  "string"
+                                                                     },
+                                                 "spouse_address":  {
+                                                                        "format":  "text",
+                                                                        "type":  "string"
+                                                                    },
+                                                 "property_id":  {
+                                                                     "description":  "Note:\nThis is a Foreign Key to `properties.id`.\u003cfk table=\u0027properties\u0027 column=\u0027id\u0027/\u003e",
+                                                                     "format":  "uuid",
+                                                                     "type":  "string"
+                                                                 },
+                                                 "notes":  {
+                                                               "format":  "text",
+                                                               "type":  "string"
+                                                           },
+                                                 "created_at":  {
+                                                                    "default":  "timezone(\u0027utc\u0027::text, now())",
+                                                                    "format":  "timestamp with time zone",
+                                                                    "type":  "string"
+                                                                }
+                                             },
+                              "type":  "object"
+                          },
+    "users":  {
+                  "required":  [
+                                   "id",
+                                   "name",
+                                   "email",
+                                   "created_at"
+                               ],
+                  "properties":  {
+                                     "id":  {
+                                                "default":  "gen_random_uuid()",
+                                                "description":  "Note:\nThis is a Primary Key.\u003cpk/\u003e",
+                                                "format":  "uuid",
+                                                "type":  "string"
+                                            },
+                                     "organization_id":  {
+                                                             "description":  "Note:\nThis is a Foreign Key to `organizations.id`.\u003cfk table=\u0027organizations\u0027 column=\u0027id\u0027/\u003e",
+                                                             "format":  "uuid",
+                                                             "type":  "string"
+                                                         },
+                                     "name":  {
+                                                  "format":  "text",
+                                                  "type":  "string"
+                                              },
+                                     "email":  {
+                                                   "format":  "text",
+                                                   "type":  "string"
+                                               },
+                                     "username":  {
+                                                      "format":  "text",
+                                                      "type":  "string"
+                                                  },
+                                     "password":  {
+                                                      "format":  "text",
+                                                      "type":  "string"
+                                                  },
+                                     "phone":  {
+                                                   "format":  "text",
+                                                   "type":  "string"
+                                               },
+                                     "role":  {
+                                                  "format":  "text",
+                                                  "type":  "string"
+                                              },
+                                     "status":  {
+                                                    "default":  "active",
+                                                    "format":  "text",
+                                                    "type":  "string"
+                                                },
+                                     "avatar":  {
+                                                    "format":  "text",
+                                                    "type":  "string"
+                                                },
+                                     "created_at":  {
+                                                        "default":  "timezone(\u0027utc\u0027::text, now())",
+                                                        "format":  "timestamp with time zone",
+                                                        "type":  "string"
+                                                    }
+                                 },
+                  "type":  "object"
+              },
+    "followup_logs":  {
+                          "required":  [
+                                           "id"
+                                       ],
+                          "properties":  {
+                                             "id":  {
+                                                        "default":  "extensions.uuid_generate_v4()",
+                                                        "description":  "Note:\nThis is a Primary Key.\u003cpk/\u003e",
+                                                        "format":  "uuid",
+                                                        "type":  "string"
+                                                    },
+                                             "followup_id":  {
+                                                                 "description":  "Note:\nThis is a Foreign Key to `followup_campaigns.id`.\u003cfk table=\u0027followup_campaigns\u0027 column=\u0027id\u0027/\u003e",
+                                                                 "format":  "uuid",
+                                                                 "type":  "string"
+                                                             },
+                                             "lead_id":  {
+                                                             "description":  "Note:\nThis is a Foreign Key to `leads.id`.\u003cfk table=\u0027leads\u0027 column=\u0027id\u0027/\u003e",
+                                                             "format":  "uuid",
+                                                             "type":  "string"
+                                                         },
+                                             "status":  {
+                                                            "format":  "text",
+                                                            "type":  "string"
+                                                        },
+                                             "scheduled_at":  {
+                                                                  "format":  "timestamp with time zone",
+                                                                  "type":  "string"
+                                                              },
+                                             "executed_at":  {
+                                                                 "format":  "timestamp with time zone",
+                                                                 "type":  "string"
+                                                             },
+                                             "error_message":  {
+                                                                   "format":  "text",
+                                                                   "type":  "string"
+                                                               },
+                                             "created_at":  {
+                                                                "default":  "now()",
+                                                                "format":  "timestamp with time zone",
+                                                                "type":  "string"
+                                                            }
+                                         },
+                          "type":  "object"
+                      },
+    "whatsapp_config":  {
+                            "required":  [
+                                             "id"
+                                         ],
+                            "properties":  {
+                                               "id":  {
+                                                          "default":  "gen_random_uuid()",
+                                                          "description":  "Note:\nThis is a Primary Key.\u003cpk/\u003e",
+                                                          "format":  "uuid",
+                                                          "type":  "string"
+                                                      },
+                                               "organization_id":  {
+                                                                       "description":  "Note:\nThis is a Foreign Key to `organizations.id`.\u003cfk table=\u0027organizations\u0027 column=\u0027id\u0027/\u003e",
+                                                                       "format":  "uuid",
+                                                                       "type":  "string"
+                                                                   },
+                                               "status":  {
+                                                              "default":  "disconnected",
+                                                              "format":  "text",
+                                                              "type":  "string"
+                                                          },
+                                               "qr_code":  {
+                                                               "format":  "text",
+                                                               "type":  "string"
+                                                           },
+                                               "phone_number":  {
+                                                                    "format":  "text",
+                                                                    "type":  "string"
+                                                                },
+                                               "updated_at":  {
+                                                                  "default":  "now()",
+                                                                  "format":  "timestamp with time zone",
+                                                                  "type":  "string"
+                                                              },
+                                               "evolution_api_url":  {
+                                                                         "format":  "text",
+                                                                         "type":  "string"
+                                                                     },
+                                               "evolution_api_key":  {
+                                                                         "format":  "text",
+                                                                         "type":  "string"
+                                                                     },
+                                               "instance_name":  {
+                                                                     "format":  "text",
+                                                                     "type":  "string"
+                                                                 },
+                                               "webhook_url":  {
+                                                                   "format":  "text",
+                                                                   "type":  "string"
+                                                               },
+                                               "openai_api_key":  {
+                                                                      "format":  "text",
+                                                                      "type":  "string"
+                                                                  },
+                                               "groq_api_key":  {
+                                                                    "format":  "text",
+                                                                    "type":  "string"
+                                                                },
+                                               "default_ai_provider":  {
+                                                                           "default":  "groq_free",
+                                                                           "format":  "text",
+                                                                           "type":  "string"
+                                                                       }
+                                           },
+                            "type":  "object"
+                        },
+    "sources":  {
+                    "required":  [
+                                     "id",
+                                     "name",
+                                     "created_at"
+                                 ],
+                    "properties":  {
+                                       "id":  {
+                                                  "default":  "gen_random_uuid()",
+                                                  "description":  "Note:\nThis is a Primary Key.\u003cpk/\u003e",
+                                                  "format":  "uuid",
+                                                  "type":  "string"
+                                              },
+                                       "organization_id":  {
+                                                               "description":  "Note:\nThis is a Foreign Key to `organizations.id`.\u003cfk table=\u0027organizations\u0027 column=\u0027id\u0027/\u003e",
+                                                               "format":  "uuid",
+                                                               "type":  "string"
+                                                           },
+                                       "name":  {
+                                                    "format":  "text",
+                                                    "type":  "string"
+                                                },
+                                       "created_at":  {
+                                                          "default":  "timezone(\u0027utc\u0027::text, now())",
+                                                          "format":  "timestamp with time zone",
+                                                          "type":  "string"
+                                                      }
+                                   },
+                    "type":  "object"
+                },
+    "campaign_logs":  {
+                          "required":  [
+                                           "id"
+                                       ],
+                          "properties":  {
+                                             "id":  {
+                                                        "default":  "gen_random_uuid()",
+                                                        "description":  "Note:\nThis is a Primary Key.\u003cpk/\u003e",
+                                                        "format":  "uuid",
+                                                        "type":  "string"
+                                                    },
+                                             "campaign_id":  {
+                                                                 "description":  "Note:\nThis is a Foreign Key to `campaigns.id`.\u003cfk table=\u0027campaigns\u0027 column=\u0027id\u0027/\u003e",
+                                                                 "format":  "uuid",
+                                                                 "type":  "string"
+                                                             },
+                                             "lead_id":  {
+                                                             "description":  "Note:\nThis is a Foreign Key to `leads.id`.\u003cfk table=\u0027leads\u0027 column=\u0027id\u0027/\u003e",
+                                                             "format":  "uuid",
+                                                             "type":  "string"
+                                                         },
+                                             "status":  {
+                                                            "format":  "text",
+                                                            "type":  "string"
+                                                        },
+                                             "error_message":  {
+                                                                   "format":  "text",
+                                                                   "type":  "string"
+                                                               },
+                                             "sent_at":  {
+                                                             "default":  "now()",
+                                                             "format":  "timestamp with time zone",
+                                                             "type":  "string"
+                                                         }
+                                         },
+                          "type":  "object"
+                      }
+}

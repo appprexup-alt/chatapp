@@ -1,0 +1,91 @@
+{
+    "name": "Alquimia Working",
+    "nodes": [
+        {
+            "parameters": {
+                "httpMethod": "POST",
+                "path": "alquimia-test",
+                "options": {}
+            },
+            "id": "webhook",
+            "name": "Webhook",
+            "type": "n8n-nodes-base.webhook",
+            "typeVersion": 2,
+            "position": [
+                200,
+                300
+            ],
+            "webhookId": "alquimia-test"
+        },
+        {
+            "parameters": {
+                "jsCode": "const input = $input.first().json;\nconst body = input.body || input;\nconst data = body.data || {};\n\n// Teléfono está en recipientKeyIndexes como JID\nlet jid = data.recipientKeyIndexes || '';\nlet phone = jid.split('@')[0] || 'unknown';\n\n// Instancia - buscar en varios lugares\nlet instance = body.instance || body.instanceName || '';\nif (instance === 'messages.upsert') {\n  // Si instance tiene el evento, buscar en otro lado\n  instance = body.apikey || body.server || data.executionMode?.split('/')[2]?.split('.')[0] || 'default';\n}\n\n// Mensaje - buscar en conversation o message\nlet content = data.conversation || data.message?.conversation || '';\nif (!content && data.message) {\n  content = data.message.extendedTextMessage?.text || JSON.stringify(data.message);\n}\nif (!content) content = 'mensaje recibido';\n\n// Nombre\nlet name = data.pushName || 'Cliente';\n\nreturn {\n  phone,\n  content: content.substring(0, 200),\n  instance,\n  name,\n  event: body.event || 'unknown'\n};"
+            },
+            "id": "parse",
+            "name": "Parse",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                400,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "=https://evolutionapi.kywia.com/message/sendText/{{ $json.instance }}",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        },
+                        {
+                            "name": "apikey",
+                            "value": "2023bb74c1f985aa39f432fa165a27f4"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={\n  \"number\": \"{{ $json.phone }}\",\n  \"text\": \"Hola {{ $json.name }}! 🏡 Recibí tu mensaje. Gracias por contactar Residencial Alquimia.\"\n}"
+            },
+            "id": "send",
+            "name": "Send",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                600,
+                300
+            ]
+        }
+    ],
+    "connections": {
+        "Webhook": {
+            "main": [
+                [
+                    {
+                        "node": "Parse",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Parse": {
+            "main": [
+                [
+                    {
+                        "node": "Send",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    },
+    "settings": {
+        "executionOrder": "v1"
+    }
+}

@@ -1,0 +1,844 @@
+{
+    "name": "Alquimia AI v6 - Agent Search",
+    "nodes": [
+        {
+            "parameters": {
+                "httpMethod": "POST",
+                "path": "alquimia-v4",
+                "options": {}
+            },
+            "id": "webhook",
+            "name": "Webhook",
+            "type": "n8n-nodes-base.webhook",
+            "typeVersion": 2,
+            "position": [
+                200,
+                300
+            ],
+            "webhookId": "alquimia-v4"
+        },
+        {
+            "parameters": {
+                "jsCode": "const body = $input.first().json;\n\n// Accept any message event\nif (!body.event || !body.event.includes('message')) {\n  if (!body.data) return { skip: true };\n}\n\nconst data = body.data || body;\nconst key = data.key || {};\nlet jid = key.remoteJid || data.remoteJid || '';\n\n// Skip groups, broadcasts and own messages\nif (!jid || jid.includes('@g.us') || jid === 'status@broadcast' || key.fromMe) {\n  return { skip: true };\n}\n\nconst phone = jid.split('@')[0];\nconst msg = data.message || {};\nlet content = msg.conversation || msg.extendedTextMessage?.text || data.body || '';\nlet isAudio = !!msg.audioMessage;\n\nif (isAudio) content = '[Audio recibido]';\nif (!content && msg.imageMessage) content = msg.imageMessage.caption || '[Imagen]';\nif (!content && msg.videoMessage) content = msg.videoMessage.caption || '[Video]';\nif (!content && msg.documentMessage) content = '[Documento]';\nif (!content) content = '[Mensaje]';\n\nconst instance = body.instance || body.instanceName || 'prexup';\n\nreturn {\n  skip: false,\n  phone,\n  name: data.pushName || 'Cliente',\n  content,\n  isAudio,\n  instance,\n  timestamp: Date.now()\n};"
+            },
+            "id": "parse",
+            "name": "Parse Message",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                400,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "conditions": {
+                    "boolean": [
+                        {
+                            "value1": "={{ $json.skip }}",
+                            "value2": false
+                        }
+                    ]
+                }
+            },
+            "id": "valid-check",
+            "name": "Valid?",
+            "type": "n8n-nodes-base.if",
+            "typeVersion": 1,
+            "position": [
+                600,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://byoalaoqyedwxpcugfhg.supabase.co/rest/v1/rpc/stack_message",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "apikey",
+                            "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ5b2FsYW9xeWVkd3hwY3VnZmhnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk4Njc1OTUsImV4cCI6MjA4NTQ0MzU5NX0.fi63bqEDlFHkG88clPZPY20JFQ8idBLP_mAD4W2BFO8"
+                        },
+                        {
+                            "name": "Authorization",
+                            "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ5b2FsYW9xeWVkd3hwY3VnZmhnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk4Njc1OTUsImV4cCI6MjA4NTQ0MzU5NX0.fi63bqEDlFHkG88clPZPY20JFQ8idBLP_mAD4W2BFO8"
+                        },
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={\n  \"p_phone\": \"{{ $json.phone }}\",\n  \"p_content\": \"{{ $json.content }}\",\n  \"p_name\": \"{{ $json.name }}\",\n  \"p_org_id\": \"00000000-0000-0000-0000-000000000000\"\n}"
+            },
+            "id": "stack-message",
+            "name": "Stack Message",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                800,
+                300
+            ],
+            "alwaysOutputData": true
+        },
+        {
+            "parameters": {
+                "jsCode": "const result = $input.first().json;\nconst msgData = $('Parse Message').item.json;\n\n// Parse result if it's a string\nlet data = result;\nif (typeof result === 'string') {\n  try {\n    data = JSON.parse(result);\n  } catch(e) {\n    data = {};\n  }\n}\n\nreturn {\n  sessionId: data.session_id || null,\n  phone: data.phone || msgData.phone,\n  leadId: data.lead_id || null,\n  messageCount: data.message_count || 1,\n  isNewSession: data.is_new_session === true,\n  shouldTriggerTimer: data.should_trigger_timer === true,\n  secondsRemaining: data.seconds_remaining || 100,\n  instance: msgData.instance,\n  name: msgData.name\n};"
+            },
+            "id": "process-stack",
+            "name": "Process Stack Result",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                1000,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "conditions": {
+                    "boolean": [
+                        {
+                            "value1": "={{ $json.shouldTriggerTimer }}",
+                            "value2": true
+                        }
+                    ]
+                }
+            },
+            "id": "is-new-session",
+            "name": "New Session?",
+            "type": "n8n-nodes-base.if",
+            "typeVersion": 1,
+            "position": [
+                1200,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "// WAIT 100 SECONDS before continuing\n// This allows more messages to be stacked\nconst ctx = $input.first().json;\nconst waitSeconds = ctx.secondsRemaining || 100;\n\n// Wait using setTimeout\nawait new Promise(resolve => setTimeout(resolve, waitSeconds * 1000));\n\nreturn {\n  sessionId: ctx.sessionId,\n  phone: ctx.phone,\n  instance: ctx.instance\n};"
+            },
+            "id": "wait-timer",
+            "name": "Wait 100s",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                1400,
+                200
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://byoalaoqyedwxpcugfhg.supabase.co/rest/v1/rpc/get_pending_session",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "apikey",
+                            "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ5b2FsYW9xeWVkd3hwY3VnZmhnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk4Njc1OTUsImV4cCI6MjA4NTQ0MzU5NX0.fi63bqEDlFHkG88clPZPY20JFQ8idBLP_mAD4W2BFO8"
+                        },
+                        {
+                            "name": "Authorization",
+                            "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ5b2FsYW9xeWVkd3hwY3VnZmhnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk4Njc1OTUsImV4cCI6MjA4NTQ0MzU5NX0.fi63bqEDlFHkG88clPZPY20JFQ8idBLP_mAD4W2BFO8"
+                        },
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={\n  \"p_session_id\": \"{{ $json.sessionId }}\"\n}"
+            },
+            "id": "get-session",
+            "name": "Get Stacked Messages",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                1600,
+                200
+            ],
+            "alwaysOutputData": true
+        },
+        {
+            "parameters": {
+                "jsCode": "const result = $input.first().json;\nconst waitData = $('Wait 100s').item.json;\n\n// Parse if string\nlet session = result;\nif (typeof result === 'string') {\n  try { session = JSON.parse(result); } catch(e) { return { skip: true }; }\n}\n\n// Check for errors\nif (session.error || session.skip) {\n  return { skip: true };\n}\n\nreturn {\n  skip: false,\n  sessionId: session.session_id,\n  phone: session.phone,\n  leadId: session.lead_id,\n  name: session.lead_name || 'Cliente',\n  combinedMessage: session.combined_message,\n  messageCount: session.message_count,\n  chatbotActive: session.chatbot_active !== false,\n  instance: waitData.instance\n};"
+            },
+            "id": "process-session",
+            "name": "Process Session",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                1800,
+                200
+            ]
+        },
+        {
+            "parameters": {
+                "conditions": {
+                    "boolean": [
+                        {
+                            "value1": "={{ $json.chatbotActive }}",
+                            "value2": true
+                        }
+                    ]
+                }
+            },
+            "id": "chatbot-active",
+            "name": "Chatbot Active?",
+            "type": "n8n-nodes-base.if",
+            "typeVersion": 1,
+            "position": [
+                2000,
+                200
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://byoalaoqyedwxpcugfhg.supabase.co/rest/v1/messages",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "apikey",
+                            "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ5b2FsYW9xeWVkd3hwY3VnZmhnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk4Njc1OTUsImV4cCI6MjA4NTQ0MzU5NX0.fi63bqEDlFHkG88clPZPY20JFQ8idBLP_mAD4W2BFO8"
+                        },
+                        {
+                            "name": "Authorization",
+                            "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ5b2FsYW9xeWVkd3hwY3VnZmhnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk4Njc1OTUsImV4cCI6MjA4NTQ0MzU5NX0.fi63bqEDlFHkG88clPZPY20JFQ8idBLP_mAD4W2BFO8"
+                        },
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={\n  \"organization_id\": \"00000000-0000-0000-0000-000000000000\",\n  \"lead_id\": \"{{ $json.leadId }}\",\n  \"content\": \"{{ $json.combinedMessage.split('\\n').join(' | ') }}\",\n  \"sender\": \"client\"\n}"
+            },
+            "id": "save-incoming",
+            "name": "Save Incoming",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                2200,
+                100
+            ],
+            "alwaysOutputData": true
+        },
+        {
+            "parameters": {
+                "method": "GET",
+                "url": "=https://byoalaoqyedwxpcugfhg.supabase.co/rest/v1/messages?lead_id=eq.{{ $('Chatbot Active?').item.json.leadId }}&order=created_at.desc&limit=20",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "apikey",
+                            "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ5b2FsYW9xeWVkd3hwY3VnZmhnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk4Njc1OTUsImV4cCI6MjA4NTQ0MzU5NX0.fi63bqEDlFHkG88clPZPY20JFQ8idBLP_mAD4W2BFO8"
+                        },
+                        {
+                            "name": "Authorization",
+                            "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ5b2FsYW9xeWVkd3hwY3VnZmhnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk4Njc1OTUsImV4cCI6MjA4NTQ0MzU5NX0.fi63bqEDlFHkG88clPZPY20JFQ8idBLP_mAD4W2BFO8"
+                        }
+                    ]
+                }
+            },
+            "id": "get-history",
+            "name": "Get Chat History",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                2600,
+                100
+            ],
+            "alwaysOutputData": true
+        },
+        {
+            "parameters": {
+                "jsCode": "// Properties removed\nconst ctx = $('Chatbot Active?').item.json;\n\n// Get all messages from history\nconst historyItems = $('Get Chat History').all();\nlet messagesArray = [];\n\nif (historyItems.length > 0) {\n  const firstItem = historyItems[0].json;\n  if (Array.isArray(firstItem)) {\n    messagesArray = firstItem;\n  } else if (firstItem && typeof firstItem === 'object') {\n    messagesArray = historyItems.map(item => item.json);\n  }\n}\n\n// Peru timezone\nconst now = new Date();\nconst peruTime = new Date(now.toLocaleString('en-US', { timeZone: 'America/Lima' }));\nconst today = peruTime.toLocaleDateString('es-PE', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });\nconst currentTime = peruTime.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' });\n\n// Format properties\nconst props = 'Usa la herramienta de búsqueda para encontrar propiedades.';\n\n// Format chat history\nconst validMessages = messagesArray.filter(m => m && m.content && m.content.trim());\nlet chatHistoryText = validMessages.length > 0\n  ? validMessages.slice().reverse().map(m => `[${m.sender === 'client' ? 'CLIENTE' : 'ASESOR'}]: ${m.content}`).join('\\n')\n  : '(Primera conversación)';\n\nreturn {\n  sessionId: ctx.sessionId,\n  leadId: ctx.leadId,\n  phone: ctx.phone,\n  instance: ctx.instance,\n  clientName: ctx.name,\n  properties: props,\n  chatHistory: chatHistoryText,\n  currentMessage: ctx.combinedMessage,\n  messageCount: ctx.messageCount,\n  today, currentTime\n};"
+            },
+            "id": "prepare-context",
+            "name": "Prepare AI Context",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                2800,
+                100
+            ]
+        },
+        {
+            "parameters": {
+                "promptType": "define",
+                "text": "=HISTORIAL DE CONVERSACIÓN PREVIO:\n{{ $json.chatHistory }}\n\n---\nMENSAJES DEL CLIENTE ({{ $json.messageCount }} mensajes acumulados):\n{{ $json.currentMessage }}",
+                "options": {
+                    "systemMessage": "Eres un asesor inmobiliario profesional de Residencial Alquimia (Huaranguillo, Sachaca - Arequipa, Perú).\n\n=== DATOS DEL CLIENTE ===\nNombre: {{ $json.clientName }}\nTeléfono: {{ $json.phone }}\nLead ID: {{ $json.leadId }}\nFecha: {{ $json.today }}\nHora: {{ $json.currentTime }}\n\n=== HERRAMIENTAS DISPONIBLES ===\n1. 'search_properties': Busca lotes por precio, área o características. Input: { query: string, min_price?: number, max_price?: number }. NO inventes información.\n2. 'assign_agent': Asigna un asesor humano aleatorio. Input: { exclude_agent_id?: string }. Úsala cuando el cliente pida hablar con alguien, quiera cita, esté listo para comprar o tenga quejas.\n3. 'create_appointment': Crea una cita. Input: { title: string, date: string (ISO 8601), lead_id?: string, property_id?: string, notes?: string, assigned_to?: string, status?: string }. SIEMPRE pasa lead_id={{ $json.leadId }}.\n4. 'reschedule_appointment': Reprograma una cita existente. Input: { lead_id: string, new_date: string (ISO 8601), notes?: string }. Busca la cita pendiente del lead y cambia la fecha.\n5. 'delete_appointment': Cancela/borra una cita. Input: { lead_id: string }. Busca la cita pendiente del lead y la elimina.\n\n=== FLUJO PARA CITAS ===\n1. Cuando el cliente quiera agendar cita: confirma fecha, hora y nombre.\n2. Usa 'assign_agent' para asignarle un asesor.\n3. Usa 'create_appointment' con el lead_id, fecha en ISO 8601, y el assigned_to del agente.\n4. Si el cliente quiere reprogramar: usa 'reschedule_appointment' con la nueva fecha.\n5. Si el cliente quiere cancelar: usa 'delete_appointment'.\n\n=== INSTRUCCIONES ===\n1. **MENSAJES ACUMULADOS**: El cliente envió {{ $json.messageCount }} mensaje(s). RESPONDE A TODOS en UNA respuesta.\n2. **LEE EL HISTORIAL**: No repitas información ya dada.\n3. **REGLAS**:\n   - Responde conciso pero completo\n   - Sé amable y profesional 😊\n   - Máximo 2-3 lotes por vez\n   - Precios en dólares\n   - WhatsApp contacto: 959-716-850\n4. **INFO**: Lotes para construcción, financiamiento disponible."
+                }
+            },
+            "id": "ai-agent",
+            "name": "AI Agent",
+            "type": "@n8n/n8n-nodes-langchain.agent",
+            "typeVersion": 1.7,
+            "position": [
+                3000,
+                100
+            ]
+        },
+        {
+            "parameters": {
+                "options": {
+                    "temperature": 0.7
+                }
+            },
+            "id": "openai-chat",
+            "name": "OpenAI Chat Model",
+            "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+            "typeVersion": 1,
+            "position": [
+                2900,
+                320
+            ],
+            "credentials": {
+                "openAiApi": {
+                    "id": "openai-credential",
+                    "name": "OpenAI API"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "sessionIdType": "customKey",
+                "sessionKey": "={{ $json.sessionId }}",
+                "contextWindowLength": 20
+            },
+            "id": "memory",
+            "name": "Window Buffer Memory",
+            "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+            "typeVersion": 1.3,
+            "position": [
+                3000,
+                320
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "const agentOutput = $input.first().json;\nconst ctx = $('Prepare AI Context').item.json;\n\nlet text = agentOutput.output || agentOutput.text || '¡Hola! Gracias por contactar Residencial Alquimia.';\n\nreturn {\n  text: text.trim(),\n  phone: ctx.phone,\n  instance: ctx.instance,\n  leadId: ctx.leadId,\n  sessionId: ctx.sessionId\n};"
+            },
+            "id": "process-ai",
+            "name": "Process AI Response",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                3200,
+                100
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "=https://evolutionapi.kywia.com/message/sendText/{{ $json.instance }}",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        },
+                        {
+                            "name": "apikey",
+                            "value": "2023bb74c1f985aa39f432fa165a27f4"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "contentType": "json",
+                "specifyBody": "keypair",
+                "bodyParameters": {
+                    "parameters": [
+                        {
+                            "name": "number",
+                            "value": "={{ $json.phone }}"
+                        },
+                        {
+                            "name": "text",
+                            "value": "={{ $json.text }}"
+                        }
+                    ]
+                }
+            },
+            "id": "send-whatsapp",
+            "name": "Send WhatsApp",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                3400,
+                100
+            ],
+            "alwaysOutputData": true
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://byoalaoqyedwxpcugfhg.supabase.co/rest/v1/messages",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "apikey",
+                            "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ5b2FsYW9xeWVkd3hwY3VnZmhnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk4Njc1OTUsImV4cCI6MjA4NTQ0MzU5NX0.fi63bqEDlFHkG88clPZPY20JFQ8idBLP_mAD4W2BFO8"
+                        },
+                        {
+                            "name": "Authorization",
+                            "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ5b2FsYW9xeWVkd3hwY3VnZmhnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk4Njc1OTUsImV4cCI6MjA4NTQ0MzU5NX0.fi63bqEDlFHkG88clPZPY20JFQ8idBLP_mAD4W2BFO8"
+                        },
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "contentType": "json",
+                "specifyBody": "keypair",
+                "bodyParameters": {
+                    "parameters": [
+                        {
+                            "name": "organization_id",
+                            "value": "00000000-0000-0000-0000-000000000000"
+                        },
+                        {
+                            "name": "lead_id",
+                            "value": "={{ $('Process AI Response').item.json.leadId }}"
+                        },
+                        {
+                            "name": "content",
+                            "value": "={{ $('Process AI Response').item.json.text }}"
+                        },
+                        {
+                            "name": "sender",
+                            "value": "agent"
+                        }
+                    ]
+                }
+            },
+            "id": "save-outgoing",
+            "name": "Save Outgoing",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                3600,
+                100
+            ],
+            "alwaysOutputData": true
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://byoalaoqyedwxpcugfhg.supabase.co/rest/v1/rpc/complete_session",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "apikey",
+                            "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ5b2FsYW9xeWVkd3hwY3VnZmhnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk4Njc1OTUsImV4cCI6MjA4NTQ0MzU5NX0.fi63bqEDlFHkG88clPZPY20JFQ8idBLP_mAD4W2BFO8"
+                        },
+                        {
+                            "name": "Authorization",
+                            "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ5b2FsYW9xeWVkd3hwY3VnZmhnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk4Njc1OTUsImV4cCI6MjA4NTQ0MzU5NX0.fi63bqEDlFHkG88clPZPY20JFQ8idBLP_mAD4W2BFO8"
+                        },
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={\n  \"p_session_id\": \"{{ $('Process AI Response').item.json.sessionId }}\"\n}"
+            },
+            "id": "complete-session",
+            "name": "Complete Session",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                3800,
+                100
+            ],
+            "alwaysOutputData": true
+        },
+        {
+            "parameters": {
+                "jsCode": "// Message was added to existing session, no action needed\nreturn { status: 'stacked', message: 'Message added to existing session' };"
+            },
+            "id": "stacked-done",
+            "name": "Message Stacked",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                1400,
+                400
+            ]
+        },
+        {
+            "parameters": {
+                "workflowId": "WJ5HdTyi1TEYtTWoE_EF2",
+                "name": "search_properties",
+                "description": "Busca propiedades en la base de datos. Input: { query: string, min_price: number, max_price: number }"
+            },
+            "id": "tool-search",
+            "name": "Tool Search",
+            "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+            "typeVersion": 1,
+            "position": [
+                3000,
+                400
+            ]
+        },
+        {
+            "parameters": {
+                "workflowId": "WJ5HdTyi1TEYtTWoE_EF2",
+                "name": "assign_agent",
+                "description": "Asigna un agente/asesor humano aleatorio al lead. Input: { exclude_agent_id?: string }. Devuelve info del agente asignado (id, nombre, email, rol)."
+            },
+            "id": "tool-assign-agent",
+            "name": "Tool Assign Agent",
+            "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+            "typeVersion": 1,
+            "position": [
+                3100,
+                400
+            ]
+        },
+        {
+            "parameters": {
+                "workflowId": "WJ5HdTyi1TEYtTWoE_EF2",
+                "name": "create_appointment",
+                "description": "Crea una cita/appointment en el CRM. Input: { title: string, date: string (ISO 8601 ej: 2026-02-20T10:00:00), lead_id?: string, property_id?: string, notes?: string, assigned_to?: string, status?: string (default Pendiente) }. Devuelve el ID y detalles de la cita creada."
+            },
+            "id": "tool-create-appointment",
+            "name": "Tool Create Appointment",
+            "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+            "typeVersion": 1,
+            "position": [
+                3200,
+                400
+            ]
+        },
+        {
+            "parameters": {
+                "workflowId": "WJ5HdTyi1TEYtTWoE_EF2",
+                "name": "reschedule_appointment",
+                "description": "Reprograma una cita pendiente. Busca la cita pendiente más próxima del lead y cambia su fecha. Input: { lead_id: string, new_date: string (ISO 8601 ej: 2026-02-25T15:00:00), notes?: string }. Devuelve la fecha anterior y la nueva."
+            },
+            "id": "tool-reschedule-appointment",
+            "name": "Tool Reschedule Appointment",
+            "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+            "typeVersion": 1,
+            "position": [
+                3300,
+                400
+            ]
+        },
+        {
+            "parameters": {
+                "workflowId": "WJ5HdTyi1TEYtTWoE_EF2",
+                "name": "delete_appointment",
+                "description": "Cancela/elimina una cita pendiente. Busca la cita pendiente más próxima del lead y la elimina. Input: { lead_id: string }. Devuelve confirmación de la cita eliminada."
+            },
+            "id": "tool-delete-appointment",
+            "name": "Tool Delete Appointment",
+            "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+            "typeVersion": 1,
+            "position": [
+                3400,
+                400
+            ]
+        }
+    ],
+    "connections": {
+        "Webhook": {
+            "main": [
+                [
+                    {
+                        "node": "Parse Message",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Parse Message": {
+            "main": [
+                [
+                    {
+                        "node": "Valid?",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Valid?": {
+            "main": [
+                [
+                    {
+                        "node": "Stack Message",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                []
+            ]
+        },
+        "Stack Message": {
+            "main": [
+                [
+                    {
+                        "node": "Process Stack Result",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Process Stack Result": {
+            "main": [
+                [
+                    {
+                        "node": "New Session?",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "New Session?": {
+            "main": [
+                [
+                    {
+                        "node": "Wait 100s",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "Message Stacked",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Wait 100s": {
+            "main": [
+                [
+                    {
+                        "node": "Get Stacked Messages",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Get Stacked Messages": {
+            "main": [
+                [
+                    {
+                        "node": "Process Session",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Process Session": {
+            "main": [
+                [
+                    {
+                        "node": "Chatbot Active?",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Chatbot Active?": {
+            "main": [
+                [
+                    {
+                        "node": "Save Incoming",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                []
+            ]
+        },
+        "Save Incoming": {
+            "main": [
+                [
+                    {
+                        "node": "Get Chat History",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Get Chat History": {
+            "main": [
+                [
+                    {
+                        "node": "Prepare AI Context",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Prepare AI Context": {
+            "main": [
+                [
+                    {
+                        "node": "AI Agent",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "OpenAI Chat Model": {
+            "ai_languageModel": [
+                [
+                    {
+                        "node": "AI Agent",
+                        "type": "ai_languageModel",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Window Buffer Memory": {
+            "ai_memory": [
+                [
+                    {
+                        "node": "AI Agent",
+                        "type": "ai_memory",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "AI Agent": {
+            "main": [
+                [
+                    {
+                        "node": "Process AI Response",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Process AI Response": {
+            "main": [
+                [
+                    {
+                        "node": "Send WhatsApp",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Send WhatsApp": {
+            "main": [
+                [
+                    {
+                        "node": "Save Outgoing",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Save Outgoing": {
+            "main": [
+                [
+                    {
+                        "node": "Complete Session",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Tool Search": {
+            "ai_tool": [
+                [
+                    {
+                        "node": "AI Agent",
+                        "type": "ai_tool",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Tool Assign Agent": {
+            "ai_tool": [
+                [
+                    {
+                        "node": "AI Agent",
+                        "type": "ai_tool",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Tool Create Appointment": {
+            "ai_tool": [
+                [
+                    {
+                        "node": "AI Agent",
+                        "type": "ai_tool",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Tool Reschedule Appointment": {
+            "ai_tool": [
+                [
+                    {
+                        "node": "AI Agent",
+                        "type": "ai_tool",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Tool Delete Appointment": {
+            "ai_tool": [
+                [
+                    {
+                        "node": "AI Agent",
+                        "type": "ai_tool",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    },
+    "settings": {
+        "executionOrder": "v1"
+    }
+}

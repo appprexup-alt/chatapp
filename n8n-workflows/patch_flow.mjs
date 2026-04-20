@@ -1,0 +1,104 @@
+import fs from 'fs';
+import path from 'path';
+
+const inputPath = 'c:/Users/RYZEN/Downloads/crm-whatsapp (1)/n8n-workflows/alquimia-ai-v4-unified.json';
+const outPath = 'c:/Users/RYZEN/Downloads/crm-whatsapp (1)/n8n-workflows/alquimia-ai-v6-agent.json';
+
+try {
+    const fileContent = fs.readFileSync(inputPath, 'utf8');
+    const workflow = JSON.parse(fileContent);
+
+    // 1. Remove 'Get Properties' node
+    console.log("Removing 'Get Properties' node...");
+    workflow.nodes = workflow.nodes.filter(n => n.name !== 'Get Properties');
+
+    // 2. Fix connections (Save Incoming -> Get Chat History)
+    // Original: Save Incoming -> Get Properties -> Get Chat History
+    // New: Save Incoming -> Get Chat History
+    if (workflow.connections['Save Incoming'] && workflow.connections['Save Incoming'].main) {
+        // Point to Get Chat History
+        // The original connection wwas to 'Get Properties', now we change it to 'Get Chat History'
+        // We find the connection that went to 'Get Properties' and change it
+        // relationships are stored in the *source* node key
+
+        // Actually, the structure is:
+        // "Save Incoming": { "main": [ [ { "node": "Get Properties", ... } ] ] }
+
+        workflow.connections['Save Incoming'].main[0][0].node = 'Get Chat History';
+    }
+    // Remove the dead connection entry
+    delete workflow.connections['Get Properties'];
+
+    // 3. Update 'Prepare AI Context' code
+    const contextNode = workflow.nodes.find(n => n.name === 'Prepare AI Context');
+    if (contextNode) {
+        console.log("Updating Context Node...");
+        let code = contextNode.parameters.jsCode;
+        code = code.replace(/const properties = \$\('Get Properties'\)\.item\.json;/g, "// Properties removed");
+        code = code.replace(/const props = Array\.isArray\(properties\)[\s\S]*?: 'No hay propiedades disponibles';/g, "const props = 'Usa la herramienta de búsqueda para encontrar propiedades.';");
+        contextNode.parameters.jsCode = code;
+    }
+
+    // 4. Add Tool Node
+    console.log("Adding Tool Node...");
+    // We need a unique ID for the workflow tool. In n8n this is usually a UUID or just the node ID.
+    // The "workflowId" parameter in the Tool Workflow node needs to point to the actual ID of the workflow we just created.
+    // Since we don't know the ID of the new workflow yet (it's not imported), the user will have to set this manually.
+    // We will leave a placeholder.
+
+    const toolNode = {
+        "parameters": {
+            "workflowId": "REPLACE_WITH_SEARCH_WORKFLOW_ID",
+            "name": "search_properties",
+            "description": "Busca propiedades en la base de datos. Input: { query: string, min_price: number, max_price: number }"
+        },
+        "id": "tool-search",
+        "name": "Tool Search",
+        "type": "@n8n/n8n-nodes-langchain.toolWorkflow",
+        "typeVersion": 1,
+        "position": [
+            3000,
+            400
+        ]
+    };
+    workflow.nodes.push(toolNode);
+
+    // 5. Connect Tool to Agent
+    // Tools output to 'ai_tool' input of Agent
+    // The Agent node is "AI Agent"
+    // We need to add an entry for "Tool Search" in the connections object
+
+    workflow.connections['Tool Search'] = {
+        "ai_tool": [
+            [
+                {
+                    "node": "AI Agent",
+                    "type": "ai_tool",
+                    "index": 0
+                }
+            ]
+        ]
+    };
+
+    // 6. Update System Prompt
+    const agentNode = workflow.nodes.find(n => n.name === 'AI Agent');
+    if (agentNode) {
+        console.log("Updating System Prompt...");
+        let prompt = agentNode.parameters.options.systemMessage;
+        // The original has: === PROPIEDADES DISPONIBLES ===\n{{ $json.properties }}
+        // We replace it.
+        prompt = prompt.replace(
+            "=== PROPIEDADES DISPONIBLES ===\n{{ $json.properties }}",
+            "=== HERRAMIENTAS ===\nUsa la herramienta 'search_properties' para buscar lotes cuando el cliente pregunte por precios, áreas o características. NO inventes información. Si la herramienta no devuelve resultados, dilo."
+        );
+        agentNode.parameters.options.systemMessage = prompt;
+    }
+
+    workflow.name = "Alquimia AI v6 - Agent Search";
+
+    fs.writeFileSync(outPath, JSON.stringify(workflow, null, 4));
+    console.log("Successfully created " + outPath);
+
+} catch (e) {
+    console.error("Error:", e);
+}

@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>DB Connectivity Test</title>
+</head>
+<body>
+    <h1>Testing Supabase Connectivity</h1>
+    <div id="results">Testing...</div>
+    <script>
+        async function test(url, name) {
+            const div = document.createElement('div');
+            div.innerHTML = `Testing ${name} (${url})...`;
+            document.body.appendChild(div);
+            try {
+                const start = Date.now();
+                const res = await fetch(url, { method: 'GET', mode: 'no-cors' });
+                const end = Date.now();
+                div.innerHTML = `✅ ${name}: Success (Opaque response) in ${end-start}ms`;
+                div.style.color = 'green';
+            } catch (e) {
+                div.innerHTML = `❌ ${name}: Failed - ${e.message}`;
+                div.style.color = 'red';
+            }
+        }
+
+        test('http://173.249.45.119:3000', 'Port 3000');
+        test('http://173.249.45.119:4000', 'Port 4000');
+        test('http://173.249.45.119:8000', 'Port 8000 (Coolify)');
+        test('http://supabasekong-h0c84kskg48sggooo00w84g0.173.249.45.119.sslip.io', 'SSlip URL');
+    </script>
+</body>
+</html>

@@ -1,0 +1,674 @@
+{
+    "name": "Alquimia AI v4 - Process Stacked",
+    "nodes": [
+        {
+            "parameters": {
+                "httpMethod": "POST",
+                "path": "alquimia-v4-process",
+                "options": {}
+            },
+            "id": "webhook-process",
+            "name": "Webhook Process",
+            "type": "n8n-nodes-base.webhook",
+            "typeVersion": 2,
+            "position": [
+                200,
+                300
+            ],
+            "webhookId": "alquimia-v4-process"
+        },
+        {
+            "parameters": {
+                "jsCode": "const input = $input.first().json;\nconst body = input.body || input;\n\n// Calcular delay en milisegundos (100 segundos)\nconst delayMs = (body.delay_seconds || 100) * 1000;\n\nreturn {\n  sessionId: body.session_id,\n  phone: body.phone,\n  delayMs: delayMs,\n  instance: body.instance || 'prexup'\n};"
+            },
+            "id": "parse-trigger",
+            "name": "Parse Trigger",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                400,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "// Esperar usando setTimeout antes de continuar\nconst ctx = $input.first().json;\nconst delayMs = ctx.delayMs || 100000;\n\n// Usar promise para esperar\nawait new Promise(resolve => setTimeout(resolve, delayMs));\n\nreturn {\n  sessionId: ctx.sessionId,\n  phone: ctx.phone,\n  instance: ctx.instance\n};"
+            },
+            "id": "wait-code",
+            "name": "Wait 100s",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                600,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://byoalaoqyedwxpcugfhg.supabase.co/rest/v1/rpc/get_pending_session",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "apikey",
+                            "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ5b2FsYW9xeWVkd3hwY3VnZmhnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk4Njc1OTUsImV4cCI6MjA4NTQ0MzU5NX0.fi63bqEDlFHkG88clPZPY20JFQ8idBLP_mAD4W2BFO8"
+                        },
+                        {
+                            "name": "Authorization",
+                            "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ5b2FsYW9xeWVkd3hwY3VnZmhnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk4Njc1OTUsImV4cCI6MjA4NTQ0MzU5NX0.fi63bqEDlFHkG88clPZPY20JFQ8idBLP_mAD4W2BFO8"
+                        },
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={\n  \"p_session_id\": \"{{ $json.sessionId }}\"\n}"
+            },
+            "id": "get-session",
+            "name": "Get Pending Session",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                800,
+                300
+            ],
+            "alwaysOutputData": true
+        },
+        {
+            "parameters": {
+                "jsCode": "const result = $input.first().json;\nconst triggerData = $('Wait 100s').item.json;\n\n// Parse if string\nlet session = result;\nif (typeof result === 'string') {\n  try {\n    session = JSON.parse(result);\n  } catch(e) {\n    return { skip: true, error: 'Parse error' };\n  }\n}\n\n// Check for errors or skip signal\nif (session.error || session.skip) {\n  return { skip: true, error: session.error || 'Already processed' };\n}\n\nreturn {\n  skip: false,\n  sessionId: session.session_id,\n  phone: session.phone,\n  leadId: session.lead_id,\n  name: session.lead_name || 'Cliente',\n  combinedMessage: session.combined_message,\n  messageCount: session.message_count,\n  messages: session.messages,\n  chatbotActive: session.chatbot_active !== false,\n  instance: triggerData.instance\n};"
+            },
+            "id": "process-session",
+            "name": "Process Session",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                1000,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "conditions": {
+                    "boolean": [
+                        {
+                            "value1": "={{ $json.skip }}",
+                            "value2": false
+                        }
+                    ]
+                }
+            },
+            "id": "should-process",
+            "name": "Should Process?",
+            "type": "n8n-nodes-base.if",
+            "typeVersion": 1,
+            "position": [
+                1200,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "conditions": {
+                    "boolean": [
+                        {
+                            "value1": "={{ $json.chatbotActive }}",
+                            "value2": true
+                        }
+                    ]
+                }
+            },
+            "id": "chatbot-check",
+            "name": "Chatbot Active?",
+            "type": "n8n-nodes-base.if",
+            "typeVersion": 1,
+            "position": [
+                1400,
+                200
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://byoalaoqyedwxpcugfhg.supabase.co/rest/v1/messages",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "apikey",
+                            "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ5b2FsYW9xeWVkd3hwY3VnZmhnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk4Njc1OTUsImV4cCI6MjA4NTQ0MzU5NX0.fi63bqEDlFHkG88clPZPY20JFQ8idBLP_mAD4W2BFO8"
+                        },
+                        {
+                            "name": "Authorization",
+                            "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ5b2FsYW9xeWVkd3hwY3VnZmhnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk4Njc1OTUsImV4cCI6MjA4NTQ0MzU5NX0.fi63bqEDlFHkG88clPZPY20JFQ8idBLP_mAD4W2BFO8"
+                        },
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        },
+                        {
+                            "name": "Prefer",
+                            "value": "return=minimal"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={\n  \"organization_id\": \"00000000-0000-0000-0000-000000000000\",\n  \"lead_id\": \"{{ $json.leadId }}\",\n  \"content\": \"{{ $json.combinedMessage.replace(/\\n/g, ' | ') }}\",\n  \"sender\": \"client\"\n}"
+            },
+            "id": "save-messages",
+            "name": "Save Combined Message",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                1600,
+                100
+            ],
+            "alwaysOutputData": true
+        },
+        {
+            "parameters": {
+                "method": "GET",
+                "url": "https://byoalaoqyedwxpcugfhg.supabase.co/rest/v1/properties?organization_id=eq.00000000-0000-0000-0000-000000000000&status=eq.Disponible&select=id,lot_number,area,price,features",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "apikey",
+                            "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ5b2FsYW9xeWVkd3hwY3VnZmhnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk4Njc1OTUsImV4cCI6MjA4NTQ0MzU5NX0.fi63bqEDlFHkG88clPZPY20JFQ8idBLP_mAD4W2BFO8"
+                        },
+                        {
+                            "name": "Authorization",
+                            "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ5b2FsYW9xeWVkd3hwY3VnZmhnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk4Njc1OTUsImV4cCI6MjA4NTQ0MzU5NX0.fi63bqEDlFHkG88clPZPY20JFQ8idBLP_mAD4W2BFO8"
+                        }
+                    ]
+                }
+            },
+            "id": "get-properties",
+            "name": "Get Properties",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                1800,
+                100
+            ],
+            "alwaysOutputData": true
+        },
+        {
+            "parameters": {
+                "method": "GET",
+                "url": "=https://byoalaoqyedwxpcugfhg.supabase.co/rest/v1/messages?lead_id=eq.{{ $('Chatbot Active?').item.json.leadId }}&order=created_at.desc&limit=20",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "apikey",
+                            "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ5b2FsYW9xeWVkd3hwY3VnZmhnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk4Njc1OTUsImV4cCI6MjA4NTQ0MzU5NX0.fi63bqEDlFHkG88clPZPY20JFQ8idBLP_mAD4W2BFO8"
+                        },
+                        {
+                            "name": "Authorization",
+                            "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ5b2FsYW9xeWVkd3hwY3VnZmhnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk4Njc1OTUsImV4cCI6MjA4NTQ0MzU5NX0.fi63bqEDlFHkG88clPZPY20JFQ8idBLP_mAD4W2BFO8"
+                        }
+                    ]
+                }
+            },
+            "id": "get-history",
+            "name": "Get Chat History",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                2000,
+                100
+            ],
+            "alwaysOutputData": true
+        },
+        {
+            "parameters": {
+                "jsCode": "const properties = $('Get Properties').item.json;\nconst ctx = $('Chatbot Active?').item.json;\n\n// Get all messages from history\nconst historyItems = $('Get Chat History').all();\nlet messagesArray = [];\n\n// Handle different response formats\nif (historyItems.length > 0) {\n  const firstItem = historyItems[0].json;\n  if (Array.isArray(firstItem)) {\n    messagesArray = firstItem;\n  } else if (firstItem && typeof firstItem === 'object') {\n    messagesArray = historyItems.map(item => item.json);\n  }\n}\n\n// Get current date/time in Peru timezone\nconst now = new Date();\nconst peruTime = new Date(now.toLocaleString('en-US', { timeZone: 'America/Lima' }));\nconst today = peruTime.toLocaleDateString('es-PE', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });\nconst currentTime = peruTime.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' });\n\n// Format properties\nconst props = Array.isArray(properties) \n  ? properties.map(p => {\n      const features = (p.features || []).join(', ');\n      return `Lote ${p.lot_number}: ${p.area}m², $${p.price} USD${features ? ' - ' + features : ''}`;\n    }).join('\\n')\n  : 'No hay propiedades disponibles';\n\n// Format chat history\nconst validMessages = messagesArray.filter(m => m && m.content && m.content.trim());\n\nlet chatHistoryText = '';\nif (validMessages.length > 0) {\n  const orderedMessages = validMessages.slice().reverse();\n  chatHistoryText = orderedMessages.map(m => {\n    const role = m.sender === 'client' ? 'CLIENTE' : 'ASESOR';\n    return `[${role}]: ${m.content}`;\n  }).join('\\n');\n} else {\n  chatHistoryText = '(Primera conversación - sin historial previo)';\n}\n\n// IMPORTANT: Combined message from stacked messages\nconst stackedMessage = ctx.combinedMessage || '';\nconst messageCount = ctx.messageCount || 1;\n\nreturn {\n  sessionId: ctx.sessionId,\n  leadId: ctx.leadId,\n  phone: ctx.phone,\n  instance: ctx.instance,\n  clientName: ctx.name,\n  properties: props,\n  chatHistory: chatHistoryText,\n  currentMessage: stackedMessage,\n  messageCount: messageCount,\n  today,\n  currentTime\n};"
+            },
+            "id": "prepare-context",
+            "name": "Prepare AI Context",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                2200,
+                100
+            ]
+        },
+        {
+            "parameters": {
+                "promptType": "define",
+                "text": "=HISTORIAL DE CONVERSACIÓN PREVIO:\n{{ $json.chatHistory }}\n\n---\nMENSAJES DEL CLIENTE ({{ $json.messageCount }} mensajes acumulados en los últimos 100 segundos):\n{{ $json.currentMessage }}",
+                "options": {
+                    "systemMessage": "Eres un asesor inmobiliario profesional de Residencial Alquimia (Huaranguillo, Sachaca - Arequipa, Perú).\n\n=== DATOS DEL CLIENTE ===\nNombre: {{ $json.clientName }}\nTeléfono: {{ $json.phone }}\nFecha: {{ $json.today }}\nHora: {{ $json.currentTime }}\n\n=== PROPIEDADES DISPONIBLES ===\n{{ $json.properties }}\n\n=== INSTRUCCIONES CRÍTICAS ===\n\n1. **MENSAJES ACUMULADOS**: El cliente envió {{ $json.messageCount }} mensaje(s) durante los últimos ~100 segundos. Estos mensajes están separados por saltos de línea. RESPONDE A TODOS LOS PUNTOS mencionados en UNA SOLA respuesta coherente.\n\n2. **LEE EL HISTORIAL PRIMERO**: Arriba del mensaje actual verás el historial de conversación. DEBES leerlo para:\n   - Recordar qué preguntó el cliente antes\n   - No repetir información ya proporcionada\n   - Seguir el hilo de la conversación\n   - Recordar si ya mencionó preferencias o intereses\n\n3. **REGLAS DE RESPUESTA**:\n   - Responde de forma completa pero concisa\n   - Sé amable y profesional 😊\n   - Ofrece máximo 2-3 lotes por vez\n   - Precios siempre en dólares\n   - Si el cliente preguntó varias cosas, responde punto por punto brevemente\n\n4. **PARA CITAS**:\n   - Si quiere agendar visita: confirma fecha, hora y nombre\n   - Confirma que su WhatsApp es el contacto principal\n   - Pide que guarde el número 959-716-850 como 'Residencial Alquimia'\n\n5. **INFO DEL PROYECTO**:\n   - Lotes de terreno para construcción\n   - Financiamiento disponible\n   - WhatsApp: 959-716-850\n\nResponde al mensaje actual considerando TODO el contexto del historial y TODOS los puntos mencionados por el cliente."
+                }
+            },
+            "id": "ai-agent",
+            "name": "AI Agent",
+            "type": "@n8n/n8n-nodes-langchain.agent",
+            "typeVersion": 1.7,
+            "position": [
+                2400,
+                100
+            ]
+        },
+        {
+            "parameters": {
+                "options": {
+                    "temperature": 0.7
+                }
+            },
+            "id": "openai-chat",
+            "name": "OpenAI Chat Model",
+            "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+            "typeVersion": 1,
+            "position": [
+                2300,
+                320
+            ],
+            "credentials": {
+                "openAiApi": {
+                    "id": "openai-credential",
+                    "name": "OpenAI API"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "sessionIdType": "customKey",
+                "sessionKey": "={{ $json.sessionId }}",
+                "contextWindowLength": 20
+            },
+            "id": "memory",
+            "name": "Window Buffer Memory",
+            "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+            "typeVersion": 1.3,
+            "position": [
+                2400,
+                320
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "const agentOutput = $input.first().json;\nconst ctx = $('Prepare AI Context').item.json;\n\nlet text = agentOutput.output || agentOutput.text || '¡Hola! Gracias por contactar Residencial Alquimia. Un asesor te atenderá pronto.';\n\nreturn {\n  text: text.trim(),\n  phone: ctx.phone,\n  instance: ctx.instance,\n  leadId: ctx.leadId,\n  sessionId: ctx.sessionId\n};"
+            },
+            "id": "process-ai",
+            "name": "Process AI Response",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                2600,
+                100
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "=https://evolutionapi.kywia.com/message/sendText/{{ $json.instance }}",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        },
+                        {
+                            "name": "apikey",
+                            "value": "2023bb74c1f985aa39f432fa165a27f4"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "contentType": "json",
+                "specifyBody": "keypair",
+                "bodyParameters": {
+                    "parameters": [
+                        {
+                            "name": "number",
+                            "value": "={{ $json.phone }}"
+                        },
+                        {
+                            "name": "text",
+                            "value": "={{ $json.text }}"
+                        }
+                    ]
+                }
+            },
+            "id": "send-whatsapp",
+            "name": "Send WhatsApp",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                2800,
+                100
+            ],
+            "alwaysOutputData": true
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://byoalaoqyedwxpcugfhg.supabase.co/rest/v1/messages",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "apikey",
+                            "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ5b2FsYW9xeWVkd3hwY3VnZmhnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk4Njc1OTUsImV4cCI6MjA4NTQ0MzU5NX0.fi63bqEDlFHkG88clPZPY20JFQ8idBLP_mAD4W2BFO8"
+                        },
+                        {
+                            "name": "Authorization",
+                            "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ5b2FsYW9xeWVkd3hwY3VnZmhnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk4Njc1OTUsImV4cCI6MjA4NTQ0MzU5NX0.fi63bqEDlFHkG88clPZPY20JFQ8idBLP_mAD4W2BFO8"
+                        },
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "contentType": "json",
+                "specifyBody": "keypair",
+                "bodyParameters": {
+                    "parameters": [
+                        {
+                            "name": "organization_id",
+                            "value": "00000000-0000-0000-0000-000000000000"
+                        },
+                        {
+                            "name": "lead_id",
+                            "value": "={{ $('Process AI Response').item.json.leadId }}"
+                        },
+                        {
+                            "name": "content",
+                            "value": "={{ $('Process AI Response').item.json.text }}"
+                        },
+                        {
+                            "name": "sender",
+                            "value": "agent"
+                        }
+                    ]
+                }
+            },
+            "id": "save-outgoing",
+            "name": "Save Outgoing Message",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                3000,
+                100
+            ],
+            "alwaysOutputData": true
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://byoalaoqyedwxpcugfhg.supabase.co/rest/v1/rpc/complete_session",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "apikey",
+                            "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ5b2FsYW9xeWVkd3hwY3VnZmhnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk4Njc1OTUsImV4cCI6MjA4NTQ0MzU5NX0.fi63bqEDlFHkG88clPZPY20JFQ8idBLP_mAD4W2BFO8"
+                        },
+                        {
+                            "name": "Authorization",
+                            "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ5b2FsYW9xeWVkd3hwY3VnZmhnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk4Njc1OTUsImV4cCI6MjA4NTQ0MzU5NX0.fi63bqEDlFHkG88clPZPY20JFQ8idBLP_mAD4W2BFO8"
+                        },
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={\n  \"p_session_id\": \"{{ $('Process AI Response').item.json.sessionId }}\"\n}"
+            },
+            "id": "complete-session",
+            "name": "Complete Session",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                3200,
+                100
+            ],
+            "alwaysOutputData": true
+        },
+        {
+            "parameters": {
+                "jsCode": "return { status: 'skipped', reason: 'Session not found' };"
+            },
+            "id": "skip-response",
+            "name": "Skip (Not Found)",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                1400,
+                400
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "return { status: 'skipped', reason: 'Chatbot inactive' };"
+            },
+            "id": "skip-chatbot",
+            "name": "Skip (Chatbot Off)",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                1600,
+                300
+            ]
+        }
+    ],
+    "connections": {
+        "Webhook Process": {
+            "main": [
+                [
+                    {
+                        "node": "Parse Trigger",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Parse Trigger": {
+            "main": [
+                [
+                    {
+                        "node": "Wait 100s",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Wait 100s": {
+            "main": [
+                [
+                    {
+                        "node": "Get Pending Session",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Get Pending Session": {
+            "main": [
+                [
+                    {
+                        "node": "Process Session",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Process Session": {
+            "main": [
+                [
+                    {
+                        "node": "Should Process?",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Should Process?": {
+            "main": [
+                [
+                    {
+                        "node": "Chatbot Active?",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "Skip (Not Found)",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Chatbot Active?": {
+            "main": [
+                [
+                    {
+                        "node": "Save Combined Message",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "Skip (Chatbot Off)",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Save Combined Message": {
+            "main": [
+                [
+                    {
+                        "node": "Get Properties",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Get Properties": {
+            "main": [
+                [
+                    {
+                        "node": "Get Chat History",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Get Chat History": {
+            "main": [
+                [
+                    {
+                        "node": "Prepare AI Context",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Prepare AI Context": {
+            "main": [
+                [
+                    {
+                        "node": "AI Agent",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "OpenAI Chat Model": {
+            "ai_languageModel": [
+                [
+                    {
+                        "node": "AI Agent",
+                        "type": "ai_languageModel",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Window Buffer Memory": {
+            "ai_memory": [
+                [
+                    {
+                        "node": "AI Agent",
+                        "type": "ai_memory",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "AI Agent": {
+            "main": [
+                [
+                    {
+                        "node": "Process AI Response",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Process AI Response": {
+            "main": [
+                [
+                    {
+                        "node": "Send WhatsApp",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Send WhatsApp": {
+            "main": [
+                [
+                    {
+                        "node": "Save Outgoing Message",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Save Outgoing Message": {
+            "main": [
+                [
+                    {
+                        "node": "Complete Session",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    },
+    "settings": {
+        "executionOrder": "v1"
+    }
+}

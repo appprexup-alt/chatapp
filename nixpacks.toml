@@ -1,0 +1,16 @@
+[phases.setup]
+nixPkgs = ["nodejs_20"]
+
+[phases.install]
+cmds = ["npm install --legacy-peer-deps"]
+
+[phases.build]
+cmds = ["npm run build"]
+
+[start]
+cmd = "npm run preview -- --host 0.0.0.0 --port 80"
+
+[static]
+# Nixpacks can also serve static files directly if you prefer
+# but since you have a 'preview' script, we can use that or a static server.
+distDir = "dist"

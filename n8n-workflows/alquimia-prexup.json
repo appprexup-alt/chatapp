@@ -1,0 +1,123 @@
+{
+    "name": "Alquimia Prexup",
+    "nodes": [
+        {
+            "parameters": {
+                "httpMethod": "POST",
+                "path": "alquimia-test",
+                "options": {}
+            },
+            "id": "webhook",
+            "name": "Webhook",
+            "type": "n8n-nodes-base.webhook",
+            "typeVersion": 2,
+            "position": [
+                200,
+                300
+            ],
+            "webhookId": "alquimia-test"
+        },
+        {
+            "parameters": {
+                "jsCode": "const input = $input.first().json;\nconst body = input.body || input;\nconst data = body.data || {};\nconst key = data.key || {};\nconst msg = data.message || {};\n\n// Teléfono desde key.remoteJid\nconst jid = key.remoteJid || '';\nconst phone = jid.split('@')[0] || 'unknown';\n\n// Nombre desde pushName\nconst name = data.pushName || 'Cliente';\n\n// Mensaje desde message.conversation\nconst content = msg.conversation || msg.extendedTextMessage?.text || 'mensaje';\n\n// Saltar mensajes propios\nif (key.fromMe === true) {\n  return { skip: true };\n}\n\n// Saltar grupos\nif (jid.includes('@g.us')) {\n  return { skip: true };\n}\n\nreturn {\n  skip: false,\n  phone,\n  name,\n  content,\n  instance: 'prexup'\n};"
+            },
+            "id": "parse",
+            "name": "Parse",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                400,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "conditions": {
+                    "boolean": [
+                        {
+                            "value1": "={{ $json.skip }}",
+                            "value2": false
+                        }
+                    ]
+                }
+            },
+            "id": "check",
+            "name": "Valid?",
+            "type": "n8n-nodes-base.if",
+            "typeVersion": 1,
+            "position": [
+                600,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "https://evolutionapi.kywia.com/message/sendText/prexup",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        },
+                        {
+                            "name": "apikey",
+                            "value": "2023bb74c1f985aa39f432fa165a27f4"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={\n  \"number\": \"{{ $json.phone }}\",\n  \"text\": \"¡Hola {{ $json.name }}! 🏡 Gracias por contactar Residencial Alquimia. ¿En qué puedo ayudarte?\"\n}"
+            },
+            "id": "send",
+            "name": "Send",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                800,
+                200
+            ]
+        }
+    ],
+    "connections": {
+        "Webhook": {
+            "main": [
+                [
+                    {
+                        "node": "Parse",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Parse": {
+            "main": [
+                [
+                    {
+                        "node": "Valid?",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Valid?": {
+            "main": [
+                [
+                    {
+                        "node": "Send",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                []
+            ]
+        }
+    },
+    "settings": {
+        "executionOrder": "v1"
+    }
+}

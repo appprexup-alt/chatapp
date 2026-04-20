@@ -1,0 +1,149 @@
+{
+    "name": "Alquimia No Filter",
+    "nodes": [
+        {
+            "parameters": {
+                "httpMethod": "POST",
+                "path": "alquimia-test",
+                "options": {},
+                "responseMode": "responseNode"
+            },
+            "id": "webhook",
+            "name": "Webhook",
+            "type": "n8n-nodes-base.webhook",
+            "typeVersion": 2,
+            "position": [
+                200,
+                300
+            ],
+            "webhookId": "alquimia-test"
+        },
+        {
+            "parameters": {
+                "respondWith": "json",
+                "responseBody": "={\"ok\":true}"
+            },
+            "id": "respond",
+            "name": "Respond",
+            "type": "n8n-nodes-base.respondToWebhook",
+            "typeVersion": 1,
+            "position": [
+                400,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "const body = $input.first().json;\n\n// Log para debug\nconsole.log('EVENT:', body.event);\nconsole.log('BODY:', JSON.stringify(body, null, 2));\n\n// Aceptar cualquier evento de mensaje\nif (!body.event || !body.event.includes('message')) {\n  // Intentar procesar de todos modos si hay data\n  if (!body.data) {\n    return { skip: true, reason: 'no_data' };\n  }\n}\n\nconst data = body.data || body;\nconst key = data.key || {};\nlet jid = key.remoteJid || '';\n\n// Si no hay jid, buscar en otros lugares\nif (!jid && data.remoteJid) jid = data.remoteJid;\nif (!jid && body.remoteJid) jid = body.remoteJid;\n\n// Saltar grupos y broadcasts\nif (jid.includes('@g.us') || jid === 'status@broadcast') {\n  return { skip: true, reason: 'group' };\n}\n\n// Saltar mensajes propios\nif (key.fromMe === true) {\n  return { skip: true, reason: 'own_message' };\n}\n\nconst phone = jid.split('@')[0] || 'unknown';\nconst msg = data.message || {};\nlet content = msg.conversation || msg.extendedTextMessage?.text || msg.text || '';\n\n// Buscar contenido en otros lugares si está vacío\nif (!content && data.body) content = data.body;\nif (!content && body.message) content = body.message;\nif (!content) content = '[mensaje recibido]';\n\nconst instance = body.instance || body.instanceName || body.apikey || 'default';\nconst pushName = data.pushName || body.pushName || 'Cliente';\n\nreturn {\n  skip: false,\n  phone,\n  content,\n  instance,\n  name: pushName,\n  debug: {\n    event: body.event,\n    hasData: !!body.data,\n    hasKey: !!key,\n    jid\n  }\n};"
+            },
+            "id": "parse",
+            "name": "Parse",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                600,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "conditions": {
+                    "boolean": [
+                        {
+                            "value1": "={{ $json.skip }}",
+                            "value2": false
+                        }
+                    ]
+                }
+            },
+            "id": "check",
+            "name": "Check",
+            "type": "n8n-nodes-base.if",
+            "typeVersion": 1,
+            "position": [
+                800,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "=https://evolutionapi.kywia.com/message/sendText/{{ $json.instance }}",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        },
+                        {
+                            "name": "apikey",
+                            "value": "2023bb74c1f985aa39f432fa165a27f4"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={\n  \"number\": \"{{ $json.phone }}\",\n  \"text\": \"Recibido: {{ $json.content }}\"\n}"
+            },
+            "id": "send",
+            "name": "Send",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                1000,
+                200
+            ]
+        }
+    ],
+    "connections": {
+        "Webhook": {
+            "main": [
+                [
+                    {
+                        "node": "Respond",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Respond": {
+            "main": [
+                [
+                    {
+                        "node": "Parse",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Parse": {
+            "main": [
+                [
+                    {
+                        "node": "Check",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Check": {
+            "main": [
+                [
+                    {
+                        "node": "Send",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                []
+            ]
+        }
+    },
+    "settings": {
+        "executionOrder": "v1"
+    }
+}
