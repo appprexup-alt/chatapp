@@ -16,6 +16,11 @@ export default defineConfig(({ mode }) => {
       'process.env.OPENAI_API_KEY': JSON.stringify(env.OPENAI_API_KEY),
       'process.env.GROQ_API_KEY': JSON.stringify(env.GROQ_API_KEY)
     },
+    preview: {
+      port: 80,
+      host: '0.0.0.0',
+      allowedHosts: true,
+    },
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),
