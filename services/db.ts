@@ -46,8 +46,8 @@ class SupabaseDatabase {
   private async proxyFetch(method: string, table: string, body?: any, orgId?: string): Promise<any> {
     try {
       const isDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-      const internalUrl = isDev ? `http://${window.location.hostname}:4000` : '';
-      let url = `${internalUrl}/db/${table}`;
+      const apiUrl = import.meta.env.VITE_API_URL || '';
+      let url = isDev ? `http://${window.location.hostname}:4000/db/${table}` : `${apiUrl}/db/${table}`;
 
       const options: RequestInit = {
         method,
@@ -134,7 +134,11 @@ class SupabaseDatabase {
 
     // Try local proxy authentication first to bypass Supabase 401 issues
     try {
-      const response = await fetch('http://127.0.0.1:4000/auth/login', {
+      const isDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+      const apiUrl = import.meta.env.VITE_API_URL || '';
+      const loginUrl = isDev ? `http://${window.location.hostname}:4000/auth/login` : `${apiUrl}/auth/login`;
+
+      const response = await fetch(loginUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ login: cleanLogin, password: password?.trim() })
