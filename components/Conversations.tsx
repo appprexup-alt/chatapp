@@ -182,7 +182,9 @@ const Conversations: React.FC = () => {
             formData.append('file', file);
 
             const isDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-            const internalUrl = isDev ? `http://${window.location.hostname}:4000` : '/api';
+            // @ts-ignore
+            const apiUrlEnv = (import.meta as any).env?.VITE_API_URL || '';
+            const internalUrl = isDev ? `http://${window.location.hostname}:4000` : apiUrlEnv;
 
             console.log(`[Upload] Sending to: ${internalUrl}/db/upload`);
             const response = await fetch(`${internalUrl}/db/upload`, {
