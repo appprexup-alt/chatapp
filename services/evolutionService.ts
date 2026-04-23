@@ -8,16 +8,16 @@ export interface EvolutionInstanceConfig {
 
 class EvolutionService {
     private async getConfig(organizationId: string): Promise<EvolutionInstanceConfig | null> {
-        const response = await fetch(`http://127.0.0.1:4000/db/whatsapp_config?orgId=${organizationId}`);
+        const isDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+        const apiUrlEnv = import.meta.env.VITE_API_URL || '';
+        const baseApiUrl = isDev ? `http://${window.location.hostname}:4000` : apiUrlEnv;
+
+        const response = await fetch(`${baseApiUrl}/db/whatsapp_config?orgId=${organizationId}`);
         const configs = await response.json();
         const data = configs[0];
 
-        // Always use our internal Baileys server for direct connection
-        const isDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-        const internalUrl = isDev ? `http://${window.location.hostname}:4000` : '/api';
-
         return {
-            apiUrl: internalUrl,
+            apiUrl: baseApiUrl,
             apiKey: data?.evolution_api_key || 'internal',
             instanceName: data?.instance_name || 'main'
         };
