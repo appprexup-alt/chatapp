@@ -1823,8 +1823,13 @@ class SupabaseDatabase {
 
   // --- MEDIA UPLOAD ---
   async uploadImage(file: File): Promise<string | null> {
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
       const isDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-      const apiUrl = import.meta.env.VITE_API_URL || '';
+      // @ts-ignore
+      const apiUrl = (import.meta as any).env?.VITE_API_URL || '';
       const uploadUrl = isDev ? `http://${window.location.hostname}:4000/db/upload` : `${apiUrl}/db/upload`;
 
       const res = await fetch(uploadUrl, {
