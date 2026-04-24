@@ -45,9 +45,10 @@ type DbResult = { success: boolean; message?: string; data?: any };
 class SupabaseDatabase {
   private async proxyFetch(method: string, table: string, body?: any, orgId?: string): Promise<any> {
     try {
-      const isDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
       const apiUrl = import.meta.env.VITE_API_URL || '';
-      let url = isDev ? `http://${window.location.hostname}:4000/db/${table}` : `${apiUrl}/db/${table}`;
+      // If apiUrl is empty and we are on localhost, fallback to :4000
+      const baseApiUrl = apiUrl || (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' ? `http://${window.location.hostname}:4000` : '');
+      let url = `${baseApiUrl}/db/${table}`;
 
       const options: RequestInit = {
         method,
@@ -134,9 +135,9 @@ class SupabaseDatabase {
 
     // Try local proxy authentication first to bypass Supabase 401 issues
     try {
-      const isDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
       const apiUrl = import.meta.env.VITE_API_URL || '';
-      const loginUrl = isDev ? `http://${window.location.hostname}:4000/auth/login` : `${apiUrl}/auth/login`;
+      const baseApiUrl = apiUrl || (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' ? `http://${window.location.hostname}:4000` : '');
+      const loginUrl = `${baseApiUrl}/auth/login`;
 
       const response = await fetch(loginUrl, {
         method: 'POST',
@@ -1827,10 +1828,9 @@ class SupabaseDatabase {
       const formData = new FormData();
       formData.append('file', file);
 
-      const isDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-      // @ts-ignore
-      const apiUrl = (import.meta as any).env?.VITE_API_URL || '';
-      const uploadUrl = isDev ? `http://${window.location.hostname}:4000/db/upload` : `${apiUrl}/db/upload`;
+      const apiUrl = import.meta.env.VITE_API_URL || '';
+      const baseApiUrl = apiUrl || (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' ? `http://${window.location.hostname}:4000` : '');
+      const uploadUrl = `${baseApiUrl}/db/upload`;
 
       const res = await fetch(uploadUrl, {
         method: 'POST',

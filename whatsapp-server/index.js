@@ -19,7 +19,11 @@ import express from 'express';
 import cors from 'cors';
 import QRCode from 'qrcode';
 
-dotenv.config({ path: path.resolve(process.cwd(), '../.env') });
+if (fs.existsSync(path.resolve(process.cwd(), '../.env'))) {
+    dotenv.config({ path: path.resolve(process.cwd(), '../.env') });
+} else {
+    dotenv.config(); // Fallback to current dir or process env
+}
 
 import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
@@ -53,6 +57,8 @@ const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_KEY;
 const DATABASE_URL = process.env.DATABASE_URL;
 const ORG_ID = process.env.ORG_ID || '00000000-0000-0000-0000-000000000000';
+const BASE_URL = process.env.BASE_URL || ''; // Public URL of the API
+const DB_SCHEMA = process.env.DB_SCHEMA || 'public'; // Database schema (public for Supabase, proxied for local)
 
 const logger = pino({ level: 'debug' });
 
@@ -85,7 +91,7 @@ class DbService {
         if (!this.isReady()) return { data: null };
         if (this.usePostgres) {
             const { rows } = await this.pool.query(
-                "SELECT id, phone FROM proxied.leads WHERE organization_id = $1 AND (phone LIKE $2 OR $3 LIKE '%' || phone)",
+                `SELECT id, phone FROM ${DB_SCHEMA}.leads WHERE organization_id = $1 AND (phone LIKE $2 OR $3 LIKE '%' || phone)`,
                 [orgId, `%${phone}`, phone]
             );
             return { data: rows[0] };
@@ -105,7 +111,7 @@ class DbService {
         let firstStageId = null;
         try {
             if (this.usePostgres) {
-                const { rows } = await this.pool.query('SELECT id FROM proxied.pipeline_stages ORDER BY "order" ASC LIMIT 1');
+                const { rows } = await this.pool.query(`SELECT id FROM ${DB_SCHEMA}.pipeline_stages ORDER BY "order" ASC LIMIT 1`);
                 if (rows.length > 0) firstStageId = rows[0].id;
             } else {
                 const { data } = await this.supabase.from('pipeline_stages').select('id').order('order', { ascending: true }).limit(1).single();
@@ -117,7 +123,7 @@ class DbService {
 
         if (this.usePostgres) {
             const { rows } = await this.pool.query(
-                "INSERT INTO proxied.leads (organization_id, name, phone, status, source, pipeline_stage_id) VALUES ($1, $2, $3, 'Nuevo', 'WhatsApp', $4) RETURNING *",
+                `INSERT INTO ${DB_SCHEMA}.leads (organization_id, name, phone, status, source, pipeline_stage_id) VALUES ($1, $2, $3, 'Nuevo', 'WhatsApp', $4) RETURNING *`,
                 [orgId, name, phone, firstStageId]
             );
             return { data: rows[0] };
@@ -132,7 +138,7 @@ class DbService {
         if (!this.isReady()) return;
         if (this.usePostgres) {
             await this.pool.query(
-                "INSERT INTO proxied.messages (organization_id, lead_id, content, sender, media_type, media_url, media_filename, payload) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
+                `INSERT INTO ${DB_SCHEMA}.messages (organization_id, lead_id, content, sender, media_type, media_url, media_filename, payload) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
                 [msgData.organization_id, msgData.lead_id, msgData.content, msgData.sender, msgData.media_type, msgData.media_url, msgData.media_filename, JSON.stringify(msgData.payload)]
             );
         } else {
@@ -144,7 +150,7 @@ class DbService {
         if (!this.isReady()) return;
         try {
             if (this.usePostgres) {
-                let q = "UPDATE proxied.whatsapp_config SET status = $1, updated_at = NOW()";
+                let q = `UPDATE ${DB_SCHEMA}.whatsapp_config SET status = $1, updated_at = NOW()`;
                 const p = [status];
                 let i = 2;
                 if (extra.qr_code !== undefined) { q += `, qr_code = $${i++}`; p.push(extra.qr_code); }
@@ -333,7 +339,12 @@ async function initWhatsApp(orgId) {
                         const fileName = `wa_${Date.now()}_${Math.floor(Math.random() * 1000)}.${ext}`;
                         const filePath = path.join(__dirname, 'uploads', fileName);
                         fs.writeFileSync(filePath, buffer);
-                        mediaUrl = `http://localhost:4000/uploads/${fileName}`;
+                        
+                        // Dynamic URL detection for media
+                        const protocol = req.headers['x-forwarded-proto'] || req.protocol;
+                        const host = req.headers['x-forwarded-host'] || req.get('host');
+                        const detectedBaseUrl = BASE_URL || `${protocol}://${host}`;
+                        mediaUrl = `${detectedBaseUrl}/uploads/${fileName}`;
                     } catch (err) {
                         console.error('[Media] Download failed:', err);
                     }
@@ -377,7 +388,7 @@ app.post('/auth/login', async (req, res) => {
     try {
         if (db.usePostgres && db.pool) {
             const { rows } = await db.pool.query(
-                "SELECT id, organization_id, name, email, role, status, password FROM proxied.users WHERE (email = $1 OR username = $1) AND status = 'active'",
+                `SELECT id, organization_id, name, email, role, status, password FROM ${DB_SCHEMA}.users WHERE (email = $1 OR username = $1) AND status = 'active'`,
                 [login]
             );
             if (rows.length > 0 && rows[0].password === password) {
@@ -409,7 +420,10 @@ app.use('/uploads', express.static('uploads'));
 
 app.post('/db/upload', upload.single('file'), (req, res) => {
     if (!req.file) return res.status(400).json({ error: 'No file' });
-    const fileUrl = `http://127.0.0.1:4000/uploads/${req.file.filename}`;
+    const protocol = req.headers['x-forwarded-proto'] || req.protocol;
+    const host = req.headers['x-forwarded-host'] || req.get('host');
+    const detectedBaseUrl = BASE_URL || `${protocol}://${host}`;
+    const fileUrl = `${detectedBaseUrl}/uploads/${req.file.filename}`;
     res.json({ url: fileUrl });
 });
 
@@ -426,7 +440,7 @@ app.post('/db/sql', async (req, res) => {
 app.get('/db/:table/:id', async (req, res) => {
     const { table, id } = req.params;
     try {
-        const q = `SELECT * FROM proxied.${table} WHERE id = $1`;
+        const q = `SELECT * FROM ${DB_SCHEMA}.${table} WHERE id = $1`;
         const { rows } = await db.pool.query(q, [id]);
         res.json(rows[0]);
     } catch (e) {
@@ -438,7 +452,7 @@ app.get('/db/:table', async (req, res) => {
     const { table } = req.params;
     const orgId = req.query.orgId;
     try {
-        let q = `SELECT * FROM proxied.${table}`;
+        let q = `SELECT * FROM ${DB_SCHEMA}.${table}`;
         const params = [];
         if (orgId && table !== 'organizations') {
             q += ` WHERE organization_id = $1`;
@@ -462,7 +476,7 @@ app.post('/db/:table', async (req, res) => {
         // Quote identifiers to handle keywords like "order"
         const quotedKeys = keys.map(k => `"${k}"`);
         const placeholders = keys.map((_, i) => `$${i + 1}`).join(', ');
-        const q = `INSERT INTO proxied.${table} (${quotedKeys.join(', ')}) VALUES (${placeholders}) RETURNING *`;
+        const q = `INSERT INTO ${DB_SCHEMA}.${table} (${quotedKeys.join(', ')}) VALUES (${placeholders}) RETURNING *`;
         console.log(`[DB Proxy] POST ${table} | Query: ${q}`);
         const { rows } = await db.pool.query(q, vals);
         res.json(rows[0]);
@@ -480,7 +494,7 @@ app.put('/db/:table/:id', async (req, res) => {
         const vals = keys.map(k => data[k] === undefined ? null : data[k]);
         const setClause = keys.map((k, i) => `"${k}" = $${i + 1}`).join(', ');
         vals.push(id);
-        const q = `UPDATE proxied.${table} SET ${setClause} WHERE id = $${vals.length} RETURNING *`;
+        const q = `UPDATE ${DB_SCHEMA}.${table} SET ${setClause} WHERE id = $${vals.length} RETURNING *`;
         console.log(`[DB Proxy] PUT ${table} | ID: ${id} | Query: ${q}`);
         const { rows } = await db.pool.query(q, vals);
         res.json(rows[0]);
@@ -493,7 +507,7 @@ app.put('/db/:table/:id', async (req, res) => {
 app.delete('/db/:table/:id', async (req, res) => {
     const { table, id } = req.params;
     try {
-        const q = `DELETE FROM proxied.${table} WHERE id = $1 RETURNING *`;
+        const q = `DELETE FROM ${DB_SCHEMA}.${table} WHERE id = $1 RETURNING *`;
         console.log(`[DB Proxy] DELETE ${table} | ID: ${id}`);
         const { rows } = await db.pool.query(q, [id]);
         res.json(rows[0]);

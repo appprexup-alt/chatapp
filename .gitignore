@@ -6,6 +6,8 @@ dist
 whatsapp_auth
 whatsapp-server/node_modules
 whatsapp-server/auth_info_baileys
+whatsapp-server/auth
+whatsapp-server/uploads
 whatsapp-server/.env
 migrate_vps.js
 run_migration_direct.js

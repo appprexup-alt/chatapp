@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-// Build trigger: v1.0.1
+// Build trigger: v2.2 (Production Ready)
 import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Layout from './components/Layout';
 import Login from './components/Login';
@@ -23,11 +23,11 @@ import { initAutomationRunner } from './services/automationRunner';
 
 const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(() => {
-    // FORCE CLEANUP of old session traces (v2.1)
+    // FORCE CLEANUP of old session traces (v2.2)
     const dbVer = localStorage.getItem('inmocrm_db_ver');
-    if (dbVer !== '2.1') {
+    if (dbVer !== '2.2') {
       localStorage.clear();
-      localStorage.setItem('inmocrm_db_ver', '2.1');
+      localStorage.setItem('inmocrm_db_ver', '2.2');
       return null;
     }
     const stored = localStorage.getItem('inmocrm_user');

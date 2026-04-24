@@ -8,10 +8,8 @@ export interface EvolutionInstanceConfig {
 
 class EvolutionService {
     private async getConfig(organizationId: string): Promise<EvolutionInstanceConfig | null> {
-        const isDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-        // @ts-ignore
-        const apiUrlEnv = (import.meta as any).env?.VITE_API_URL || '';
-        const baseApiUrl = isDev ? `http://${window.location.hostname}:4000` : apiUrlEnv;
+        const apiUrlEnv = import.meta.env.VITE_API_URL || '';
+        const baseApiUrl = apiUrlEnv || (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' ? `http://${window.location.hostname}:4000` : '');
 
         const response = await fetch(`${baseApiUrl}/db/whatsapp_config?orgId=${organizationId}`);
         const configs = await response.json();

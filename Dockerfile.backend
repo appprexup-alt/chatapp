@@ -1,0 +1,31 @@
+# Dockerfile for whatsapp-server (Baileys backend)
+FROM node:20-slim
+
+WORKDIR /app
+
+# Install system dependencies for Baileys
+RUN apt-get update && apt-get install -y \
+    python3 make g++ git \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy package files
+COPY whatsapp-server/package*.json ./
+
+# Install dependencies
+RUN npm install --legacy-peer-deps
+
+# Copy server code
+COPY whatsapp-server/ ./
+
+# Create uploads directory
+RUN mkdir -p uploads auth
+
+# Expose port
+EXPOSE 4000
+
+# Set default environment
+ENV PORT=4000
+ENV DB_SCHEMA=public
+ENV NODE_ENV=production
+
+CMD ["node", "index.js"]

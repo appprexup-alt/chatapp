@@ -6,6 +6,7 @@ services:
       args:
         - VITE_SUPABASE_URL=${VITE_SUPABASE_URL}
         - VITE_SUPABASE_ANON_KEY=${VITE_SUPABASE_ANON_KEY}
+        - VITE_API_URL=${VITE_API_URL}
     ports:
       - "80:80"
     depends_on:
@@ -14,16 +15,24 @@ services:
 
   backend:
     build:
-      context: ./whatsapp-server
+      context: .
+      dockerfile: Dockerfile.backend
+    ports:
+      - "4000:4000"
     environment:
       - NODE_ENV=production
+      - PORT=4000
       - DATABASE_URL=${DATABASE_URL}
       - SUPABASE_URL=${SUPABASE_URL}
       - SUPABASE_KEY=${SUPABASE_KEY}
       - ORG_ID=${ORG_ID}
+      - BASE_URL=${BASE_URL}
+      - DB_SCHEMA=${DB_SCHEMA:-public}
     volumes:
-      - whatsapp_session:/app/auth
+      - whatsapp_auth:/app/auth
+      - whatsapp_uploads:/app/uploads
     restart: always
 
 volumes:
-  whatsapp_session:
+  whatsapp_auth:
+  whatsapp_uploads:
