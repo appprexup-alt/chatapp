@@ -430,8 +430,12 @@ app.post('/db/upload', upload.single('file'), (req, res) => {
 app.post('/db/sql', async (req, res) => {
     const { query, params } = req.body;
     try {
-        const { rows } = await db.pool.query(query, params || []);
-        res.json(rows);
+        if (db.pool) {
+            const { rows } = await db.pool.query(query, params || []);
+            res.json(rows);
+        } else {
+            res.status(500).json({ error: 'SQL queries require direct PostgreSQL connection' });
+        }
     } catch (e) {
         res.status(500).json({ error: e.message });
     }
@@ -440,9 +444,17 @@ app.post('/db/sql', async (req, res) => {
 app.get('/db/:table/:id', async (req, res) => {
     const { table, id } = req.params;
     try {
-        const q = `SELECT * FROM ${DB_SCHEMA}.${table} WHERE id = $1`;
-        const { rows } = await db.pool.query(q, [id]);
-        res.json(rows[0]);
+        if (db.pool) {
+            const q = `SELECT * FROM ${DB_SCHEMA}.${table} WHERE id = $1`;
+            const { rows } = await db.pool.query(q, [id]);
+            res.json(rows[0]);
+        } else if (db.supabase) {
+            const { data, error } = await db.supabase.from(table).select('*').eq('id', id).maybeSingle();
+            if (error) throw error;
+            res.json(data);
+        } else {
+            res.status(500).json({ error: 'No database configured' });
+        }
     } catch (e) {
         res.status(500).json({ error: e.message });
     }
@@ -452,15 +464,28 @@ app.get('/db/:table', async (req, res) => {
     const { table } = req.params;
     const orgId = req.query.orgId;
     try {
-        let q = `SELECT * FROM ${DB_SCHEMA}.${table}`;
-        const params = [];
-        if (orgId && table !== 'organizations') {
-            q += ` WHERE organization_id = $1`;
-            params.push(orgId);
+        if (db.pool) {
+            let q = `SELECT * FROM ${DB_SCHEMA}.${table}`;
+            const params = [];
+            if (orgId && table !== 'organizations') {
+                q += ` WHERE organization_id = $1`;
+                params.push(orgId);
+            }
+            console.log(`[DB Proxy] GET ${table} | Query: ${q} | Params: ${JSON.stringify(params)}`);
+            const { rows } = await db.pool.query(q, params);
+            res.json(rows);
+        } else if (db.supabase) {
+            console.log(`[DB Proxy/Supabase] GET ${table} | orgId: ${orgId}`);
+            let query = db.supabase.from(table).select('*');
+            if (orgId && table !== 'organizations') {
+                query = query.eq('organization_id', orgId);
+            }
+            const { data, error } = await query;
+            if (error) throw error;
+            res.json(data || []);
+        } else {
+            res.status(500).json({ error: 'No database configured' });
         }
-        console.log(`[DB Proxy] GET ${table} | Query: ${q} | Params: ${JSON.stringify(params)}`);
-        const { rows } = await db.pool.query(q, params);
-        res.json(rows);
     } catch (e) {
         console.error(`[DB Proxy Error] GET ${table}:`, e.message);
         res.status(500).json({ error: e.message });
@@ -471,15 +496,25 @@ app.post('/db/:table', async (req, res) => {
     const { table } = req.params;
     const data = req.body;
     try {
-        const keys = Object.keys(data).filter(k => k !== 'id');
-        const vals = keys.map(k => data[k] === undefined ? null : data[k]);
-        // Quote identifiers to handle keywords like "order"
-        const quotedKeys = keys.map(k => `"${k}"`);
-        const placeholders = keys.map((_, i) => `$${i + 1}`).join(', ');
-        const q = `INSERT INTO ${DB_SCHEMA}.${table} (${quotedKeys.join(', ')}) VALUES (${placeholders}) RETURNING *`;
-        console.log(`[DB Proxy] POST ${table} | Query: ${q}`);
-        const { rows } = await db.pool.query(q, vals);
-        res.json(rows[0]);
+        if (db.pool) {
+            const keys = Object.keys(data).filter(k => k !== 'id');
+            const vals = keys.map(k => data[k] === undefined ? null : data[k]);
+            const quotedKeys = keys.map(k => `"${k}"`);
+            const placeholders = keys.map((_, i) => `$${i + 1}`).join(', ');
+            const q = `INSERT INTO ${DB_SCHEMA}.${table} (${quotedKeys.join(', ')}) VALUES (${placeholders}) RETURNING *`;
+            console.log(`[DB Proxy] POST ${table} | Query: ${q}`);
+            const { rows } = await db.pool.query(q, vals);
+            res.json(rows[0]);
+        } else if (db.supabase) {
+            console.log(`[DB Proxy/Supabase] POST ${table}`);
+            const insertData = { ...data };
+            delete insertData.id;
+            const { data: result, error } = await db.supabase.from(table).insert([insertData]).select().single();
+            if (error) throw error;
+            res.json(result);
+        } else {
+            res.status(500).json({ error: 'No database configured' });
+        }
     } catch (e) {
         console.error(`[DB Proxy Error] POST ${table}:`, e.message);
         res.status(500).json({ error: e.message });
@@ -490,14 +525,25 @@ app.put('/db/:table/:id', async (req, res) => {
     const { table, id } = req.params;
     const data = req.body;
     try {
-        const keys = Object.keys(data).filter(k => k !== 'id');
-        const vals = keys.map(k => data[k] === undefined ? null : data[k]);
-        const setClause = keys.map((k, i) => `"${k}" = $${i + 1}`).join(', ');
-        vals.push(id);
-        const q = `UPDATE ${DB_SCHEMA}.${table} SET ${setClause} WHERE id = $${vals.length} RETURNING *`;
-        console.log(`[DB Proxy] PUT ${table} | ID: ${id} | Query: ${q}`);
-        const { rows } = await db.pool.query(q, vals);
-        res.json(rows[0]);
+        if (db.pool) {
+            const keys = Object.keys(data).filter(k => k !== 'id');
+            const vals = keys.map(k => data[k] === undefined ? null : data[k]);
+            const setClause = keys.map((k, i) => `"${k}" = $${i + 1}`).join(', ');
+            vals.push(id);
+            const q = `UPDATE ${DB_SCHEMA}.${table} SET ${setClause} WHERE id = $${vals.length} RETURNING *`;
+            console.log(`[DB Proxy] PUT ${table} | ID: ${id} | Query: ${q}`);
+            const { rows } = await db.pool.query(q, vals);
+            res.json(rows[0]);
+        } else if (db.supabase) {
+            console.log(`[DB Proxy/Supabase] PUT ${table} | ID: ${id}`);
+            const updateData = { ...data };
+            delete updateData.id;
+            const { data: result, error } = await db.supabase.from(table).update(updateData).eq('id', id).select().single();
+            if (error) throw error;
+            res.json(result);
+        } else {
+            res.status(500).json({ error: 'No database configured' });
+        }
     } catch (e) {
         console.error(`[DB Proxy Error] PUT ${table}:`, e.message);
         res.status(500).json({ error: e.message });
@@ -507,10 +553,19 @@ app.put('/db/:table/:id', async (req, res) => {
 app.delete('/db/:table/:id', async (req, res) => {
     const { table, id } = req.params;
     try {
-        const q = `DELETE FROM ${DB_SCHEMA}.${table} WHERE id = $1 RETURNING *`;
-        console.log(`[DB Proxy] DELETE ${table} | ID: ${id}`);
-        const { rows } = await db.pool.query(q, [id]);
-        res.json(rows[0]);
+        if (db.pool) {
+            const q = `DELETE FROM ${DB_SCHEMA}.${table} WHERE id = $1 RETURNING *`;
+            console.log(`[DB Proxy] DELETE ${table} | ID: ${id}`);
+            const { rows } = await db.pool.query(q, [id]);
+            res.json(rows[0]);
+        } else if (db.supabase) {
+            console.log(`[DB Proxy/Supabase] DELETE ${table} | ID: ${id}`);
+            const { data, error } = await db.supabase.from(table).delete().eq('id', id).select().single();
+            if (error) throw error;
+            res.json(data);
+        } else {
+            res.status(500).json({ error: 'No database configured' });
+        }
     } catch (e) {
         console.error(`[DB Proxy Error] DELETE ${table}:`, e.message);
         res.status(500).json({ error: e.message });
