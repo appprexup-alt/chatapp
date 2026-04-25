@@ -18,13 +18,17 @@ import { useNotification } from './NotificationContext';
 import QuickReplyManager from './QuickReplyManager';
 
 const Conversations: React.FC = () => {
+    const isLID = (phone: string) => {
+        if (!phone) return false;
+        const clean = phone.replace(/\D/g, '');
+        return clean.length >= 14 || /[a-zA-Z]/.test(phone) || phone.includes(':');
+    };
+
     const formatPhone = (phone: string) => {
         if (!phone) return '';
-        // Si es un ID largo de WhatsApp (LID)
-        if (phone.length > 13 || /[a-zA-Z]/.test(phone) || phone.includes(':')) {
-            return `ID: ${phone.slice(0, 10)}...`;
+        if (isLID(phone)) {
+            return `📱 WA-${phone.slice(0, 6)}...`;
         }
-        
         const clean = phone.replace(/\D/g, '');
         if (!clean) return phone;
         return `+${clean}`;

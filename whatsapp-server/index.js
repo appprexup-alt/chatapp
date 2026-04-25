@@ -245,32 +245,6 @@ async function initWhatsApp(orgId) {
         }
     });
 
-    // --- Build Contact Map (LID -> Phone) ---
-    sock.ev.on('contacts.upsert', (contacts) => {
-        for (const contact of contacts) {
-            const jid = contact.id;
-            if (jid && jid.endsWith('@lid')) {
-                // If it's a LID, check if we have a phone number for it
-                // Baileys sometimes provides it in contact.id if it's resolved
-            } else if (jid && jid.endsWith('@s.whatsapp.net')) {
-                // Store PNs to help resolution later
-            }
-        }
-    });
-
-    sock.ev.on('contacts.update', (updates) => {
-        for (const update of updates) {
-            if (update.id && update.id.endsWith('@lid') && update.id.includes(':')) {
-                // Some versions of WhatsApp send PN:LID in the ID
-                const [pn, lid] = update.id.split(':');
-                if (pn && lid) {
-                    lidToPhoneMap.set(`${lid}@lid`, pn);
-                    console.log(`[Map] Resolved LID: ${lid} -> ${pn}`);
-                }
-            }
-        }
-    });
-
     sock.ev.on('messaging-history.set', async ({ chats, contacts, messages, isLatest }) => {
         console.log(`[Sync] Received messaging history: ${chats.length} chats, ${messages.length} messages`);
         for (const msg of messages) {
@@ -418,10 +392,8 @@ async function initWhatsApp(orgId) {
                         const filePath = path.join(__dirname, 'uploads', fileName);
                         fs.writeFileSync(filePath, buffer);
                         
-                        // Dynamic URL detection for media
-                        const protocol = req.headers['x-forwarded-proto'] || req.protocol;
-                        const host = req.headers['x-forwarded-host'] || req.get('host');
-                        const detectedBaseUrl = BASE_URL || `${protocol}://${host}`;
+                        // Use BASE_URL from env (req doesn't exist in websocket context)
+                        const detectedBaseUrl = BASE_URL || `http://localhost:${PORT}`;
                         mediaUrl = `${detectedBaseUrl}/uploads/${fileName}`;
                     } catch (err) {
                         console.error('[Media] Download failed:', err);
@@ -672,7 +644,8 @@ app.post('/message/sendText/:instanceName', async (req, res) => {
 
     try {
         const cleanNumber = number.replace(/\D/g, '');
-        const jid = number.includes('@') ? number : (cleanNumber.startsWith('30') ? `${cleanNumber}@lid` : `${cleanNumber}@s.whatsapp.net`);
+        // LIDs are 14+ digit internal WhatsApp IDs, regular phones are shorter
+        const jid = number.includes('@') ? number : (cleanNumber.length >= 14 ? `${cleanNumber}@lid` : `${cleanNumber}@s.whatsapp.net`);
         console.log(`[Send] To: ${jid} | Text: ${text}`);
         const result = await sock.sendMessage(jid, { text });
         res.json(result);
@@ -688,7 +661,7 @@ app.post('/message/sendMedia/:instanceName', async (req, res) => {
 
     try {
         const cleanNumber = number.replace(/\D/g, '');
-        const jid = number.includes('@') ? number : (cleanNumber.startsWith('30') ? `${cleanNumber}@lid` : `${cleanNumber}@s.whatsapp.net`);
+        const jid = number.includes('@') ? number : (cleanNumber.length >= 14 ? `${cleanNumber}@lid` : `${cleanNumber}@s.whatsapp.net`);
         console.log(`[Send Media] To: ${jid} | Type: ${mediatype}`);
         let message = {};
         if (mediatype === 'image') message = { image: { url: media }, caption: caption && caption !== 'undefined' ? caption : undefined };
@@ -709,7 +682,7 @@ app.post('/message/sendWhatsAppAudio/:instanceName', async (req, res) => {
     if (!sock) return res.status(500).json({ error: 'Instance not ready' });
     try {
         const cleanNumber = number.replace(/\D/g, '');
-        const jid = number.includes('@') ? number : (cleanNumber.startsWith('30') ? `${cleanNumber}@lid` : `${cleanNumber}@s.whatsapp.net`);
+        const jid = number.includes('@') ? number : (cleanNumber.length >= 14 ? `${cleanNumber}@lid` : `${cleanNumber}@s.whatsapp.net`);
         const result = await sock.sendMessage(jid, { audio: { url: audio }, mimetype: 'audio/mp4', ptt: true });
         res.json(result);
     } catch (e) {
