@@ -168,6 +168,28 @@ class DbService {
 
 const db = new DbService();
 
+// --- WHATSAPP CONTROL ---
+app.get('/whatsapp/reset', async (req, res) => {
+    const orgId = req.query.orgId || ORG_ID;
+    try {
+        console.log(`[Control] Manual reset requested for Org: ${orgId}`);
+        const sock = sessions.get(orgId);
+        if (sock) {
+            sock.logout();
+            sessions.delete(orgId);
+        }
+        const authPath = path.join(__dirname, 'auth', orgId);
+        if (fs.existsSync(authPath)) {
+            fs.rmSync(authPath, { recursive: true, force: true });
+        }
+        // Restart after cleanup
+        setTimeout(() => initWhatsApp(orgId), 2000);
+        res.json({ success: true, message: 'Sesión reiniciada y archivos limpiados.' });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 async function initWhatsApp(orgId) {
     console.log(`[Baileys] Initializing session for Org: ${orgId}`);
     const authPath = path.join(__dirname, 'auth', orgId);
@@ -208,9 +230,14 @@ async function initWhatsApp(orgId) {
             console.log(`[Conn] Org ${orgId} closed. Status: ${statusCode}. Reconnecting: ${shouldReconnect}`);
             if (lastDisconnect?.error) console.error('[Conn] Error detail:', lastDisconnect.error);
 
+            if (!shouldReconnect) {
+                console.log(`[Auth] Logging out and clearing auth for Org: ${orgId}`);
+                fs.rmSync(authPath, { recursive: true, force: true });
+                sessions.delete(orgId);
+            }
+
             await db.updateWhatsappStatus(orgId, 'disconnected', { qr_code: null });
             if (shouldReconnect) setTimeout(() => initWhatsApp(orgId), 5000);
-            else sessions.delete(orgId);
         } else if (connection === 'open') {
             console.log(`[Conn] Org ${orgId} connected successfully`);
             lastQR = null;
