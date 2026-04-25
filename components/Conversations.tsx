@@ -18,6 +18,23 @@ import { useNotification } from './NotificationContext';
 import QuickReplyManager from './QuickReplyManager';
 
 const Conversations: React.FC = () => {
+    const formatPhone = (phone: string) => {
+        if (!phone) return '';
+        // If it's a long numeric ID or contains non-digits, label it as ID
+        if (phone.length > 15 || /[a-zA-Z]/.test(phone) || phone.includes(':') || phone.includes('-')) {
+            return `ID: ${phone.slice(0, 15)}...`;
+        }
+        
+        const clean = phone.replace(/\D/g, '');
+        if (!clean) return phone;
+
+        // Basic formatting attempt
+        if (clean.length >= 10) {
+            return `+${clean}`;
+        }
+        return clean;
+    };
+
     const { addNotification } = useNotification();
     const [currentUser, setCurrentUser] = useState<User | null>(null);
     const [leads, setLeads] = useState<Lead[]>([]);
@@ -681,7 +698,7 @@ const Conversations: React.FC = () => {
                                         </div>
                                         <div className="flex items-center justify-between">
                                             <p className="text-[10px] md:text-[11px] font-bold text-zinc-400/60 truncate tracking-tight pr-2">
-                                                {lead.phone}
+                                                {formatPhone(lead.phone)}
                                             </p>
                                             {stage && (
                                                 <span className={`text-[8px] font-bold px-2 py-0.5 rounded-lg border tracking-tight transition-all ${isSelected ? 'bg-primary/20 border-border-color text-primary opacity-100' : 'bg-input-bg border-border-color text-text-muted opacity-40 group-hover:opacity-100 group-hover:bg-primary/5 group-hover:border-border-color'}`}>
@@ -723,7 +740,7 @@ const Conversations: React.FC = () => {
                             <div>
                                 <h3 className="text-xs font-bold text-zinc-300 tracking-tight leading-tight">{selectedLead.name}</h3>
                                 <p className="text-[10px] text-zinc-400 font-medium leading-tight mb-0.5">
-                                    {selectedLead.phone}
+                                    {formatPhone(selectedLead.phone)}
                                 </p>
                                 <p className="text-[9px] text-green-500 font-bold opacity-70 flex items-center gap-1">
                                     <div className="w-1 h-1 rounded-full bg-green-500 animate-pulse" />

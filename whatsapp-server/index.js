@@ -222,15 +222,29 @@ async function initWhatsApp(orgId) {
         console.log(`[Sync] Received messaging history: ${chats.length} chats, ${messages.length} messages`);
         for (const msg of messages) {
             try {
-                if (!msg.message || msg.key.remoteJid === 'status@broadcast') continue;
+                if (!msg.message || 
+                    msg.key.remoteJid === 'status@broadcast' || 
+                    msg.key.remoteJid.endsWith('@g.us') || 
+                    msg.key.remoteJid.endsWith('@newsletter')
+                ) continue;
+
                 const from = msg.key.remoteJid;
                 const normalized = jidNormalizedUser(from);
                 let phone = normalized.split('@')[0];
 
                 // If it's a LID, try to find the PN in our map
-                if (from.endsWith('@lid') && lidToPhoneMap.has(from)) {
-                    phone = lidToPhoneMap.get(from);
+                if (from.endsWith('@lid')) {
+                    if (lidToPhoneMap.has(from)) {
+                        phone = lidToPhoneMap.get(from);
+                    } else {
+                        // Skip unresolved LIDs if we strictly want phone numbers
+                        // or continue and allow the ID to be the 'phone' for now
+                    }
                 }
+                
+                // Sanitize phone: keep only digits
+                phone = phone.replace(/\D/g, '');
+                if (!phone) continue; // Skip if no numeric part found (unresolved LID or invalid)
 
                 const isMe = msg.key.fromMe;
 
@@ -293,6 +307,11 @@ async function initWhatsApp(orgId) {
         for (const msg of m.messages) {
             try {
                 const from = msg.key.remoteJid;
+                if (from === 'status@broadcast' || from.endsWith('@g.us') || from.endsWith('@newsletter')) {
+                    console.log(`[Msg] Skipping non-direct JID: ${from}`);
+                    continue;
+                }
+
                 const normalized = jidNormalizedUser(from);
                 let phone = normalized.split('@')[0];
 
@@ -304,6 +323,10 @@ async function initWhatsApp(orgId) {
                         console.log(`[Msg] Unresolved LID: ${from}`);
                     }
                 }
+
+                // Sanitize phone: keep only digits
+                phone = phone.replace(/\D/g, '');
+                if (!phone) continue;
 
                 const isMe = msg.key.fromMe;
 
