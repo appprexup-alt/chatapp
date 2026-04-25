@@ -87,26 +87,30 @@ class DbService {
 
     isReady() { return !!(this.pool || this.supabase); }
 
-    async findLeadByPhone(phone, orgId) {
+    async findLeadByPhone(phoneOrLid, orgId) {
         if (!this.isReady()) return { data: null };
+        const clean = phoneOrLid.replace(/\D/g, '');
         if (this.usePostgres) {
             const { rows } = await this.pool.query(
-                `SELECT id, phone FROM ${DB_SCHEMA}.leads WHERE organization_id = $1 AND (phone LIKE $2 OR $3 LIKE '%' || phone)`,
-                [orgId, `%${phone}`, phone]
+                `SELECT * FROM ${DB_SCHEMA}.leads WHERE organization_id = $1 AND (phone = $2 OR whatsapp_id = $2 OR phone LIKE $3 OR $2 LIKE '%' || phone)`,
+                [orgId, clean, `%${clean}`]
             );
             return { data: rows[0] };
         } else {
-            const { data } = await this.supabase.from('leads').select('id, phone').eq('organization_id', orgId);
+            const { data } = await this.supabase.from('leads').select('*').eq('organization_id', orgId);
             const lead = data?.find(l => {
+                if (l.whatsapp_id === clean) return true;
                 const lPhone = l.phone.replace(/\D/g, '');
-                return lPhone.endsWith(phone) || phone.endsWith(lPhone);
+                return lPhone.endsWith(clean) || clean.endsWith(lPhone);
             });
             return { data: lead };
         }
     }
 
-    async createLead(name, phone, orgId) {
+    async createLead(name, phoneOrLid, orgId) {
         if (!this.isReady()) return { data: null };
+        const clean = phoneOrLid.replace(/\D/g, '');
+        const isLid = clean.length >= 14;
 
         let firstStageId = null;
         try {
@@ -117,20 +121,26 @@ class DbService {
                 const { data } = await this.supabase.from('pipeline_stages').select('id').order('order', { ascending: true }).limit(1).single();
                 if (data) firstStageId = data.id;
             }
-        } catch (e) {
-            console.error('[DB] Error fetching first stage:', e);
-        }
+        } catch (e) { }
+
+        const leadData = {
+            organization_id: orgId,
+            name: name || 'Nuevo Contacto',
+            phone: isLid ? `SOLICITAR NUMERO (${clean.slice(0,4)})` : clean,
+            whatsapp_id: isLid ? clean : null,
+            status: 'Nuevo',
+            source: 'WhatsApp',
+            pipeline_stage_id: firstStageId
+        };
 
         if (this.usePostgres) {
             const { rows } = await this.pool.query(
-                `INSERT INTO ${DB_SCHEMA}.leads (organization_id, name, phone, status, source, pipeline_stage_id) VALUES ($1, $2, $3, 'Nuevo', 'WhatsApp', $4) RETURNING *`,
-                [orgId, name, phone, firstStageId]
+                `INSERT INTO ${DB_SCHEMA}.leads (organization_id, name, phone, whatsapp_id, status, source, pipeline_stage_id) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+                [leadData.organization_id, leadData.name, leadData.phone, leadData.whatsapp_id, leadData.status, leadData.source, leadData.pipeline_stage_id]
             );
             return { data: rows[0] };
         } else {
-            return await this.supabase.from('leads').insert([{
-                organization_id: orgId, name, phone, status: 'Nuevo', source: 'WhatsApp', pipeline_stage_id: firstStageId
-            }]).select().single();
+            return await this.supabase.from('leads').insert([leadData]).select().single();
         }
     }
 
@@ -165,20 +175,27 @@ class DbService {
         }
     }
 
-    async updateLeadPhone(leadId, newPhone) {
+    async updateLeadPhone(leadId, newPhone, whatsappId = null) {
         if (!this.isReady()) return;
         try {
             if (this.usePostgres) {
-                await this.pool.query(
-                    `UPDATE ${DB_SCHEMA}.leads SET phone = $1, updated_at = NOW() WHERE id = $2`,
-                    [newPhone, leadId]
-                );
+                let q = `UPDATE ${DB_SCHEMA}.leads SET phone = $1, updated_at = NOW()`;
+                const params = [newPhone];
+                if (whatsappId) {
+                    q += `, whatsapp_id = $2`;
+                    params.push(whatsappId);
+                }
+                q += ` WHERE id = $${params.length + 1}`;
+                params.push(leadId);
+                await this.pool.query(q, params);
             } else {
-                await this.supabase.from('leads').update({ phone: newPhone, updated_at: new Date().toISOString() }).eq('id', leadId);
+                const updateData = { phone: newPhone, updated_at: new Date().toISOString() };
+                if (whatsappId) updateData.whatsapp_id = whatsappId;
+                await this.supabase.from('leads').update(updateData).eq('id', leadId);
             }
-            console.log(`[DB] Lead ${leadId} phone updated to ${newPhone}`);
+            console.log(`[DB] Lead ${leadId} updated. Phone: ${newPhone}, WA_ID: ${whatsappId}`);
         } catch (err) {
-            console.error('[DB] Error updating lead phone:', err.message);
+            console.error('[DB] Error updating lead:', err.message);
         }
     }
 }
@@ -376,20 +393,27 @@ async function initWhatsApp(orgId) {
                 const normalized = jidNormalizedUser(from);
                 let phone = normalized.split('@')[0];
 
-                if (from.endsWith('@lid')) {
-                    if (lidToPhoneMap.has(from)) {
-                        phone = lidToPhoneMap.get(from);
-                        console.log(`[Msg] LID resolved to PN: ${phone}`);
-                    } else {
-                        console.log(`[Msg] Unresolved LID: ${from}`);
-                    }
+                // 1. Try to resolve LID from memory map
+                if (from.endsWith('@lid') && lidToPhoneMap.has(from)) {
+                    phone = lidToPhoneMap.get(from);
+                    console.log(`[Msg] LID resolved from memory: ${phone}`);
                 }
 
-                // Sanitize phone: keep only digits
+                // 2. IMPORTANT: Try to find lead by LID or Phone to get the REAL number
+                const cleanInput = phone.replace(/\D/g, '');
+                const { data: lead } = await db.findLeadByPhone(cleanInput, orgId);
+                
+                // If we found a lead and it has a real phone number (not a LID), use it!
+                if (lead && lead.phone && !lead.phone.includes('SOLICITAR')) {
+                    phone = lead.phone;
+                }
+
+                // Sanitize final phone
                 phone = phone.replace(/\D/g, '');
                 if (!phone) continue;
 
                 const isMe = msg.key.fromMe;
+                const leadId = lead?.id;
 
                 let content = msg.message.conversation || msg.message.extendedTextMessage?.text || '';
                 let mediaType = 'text';
@@ -432,35 +456,16 @@ async function initWhatsApp(orgId) {
                     }
                 }
 
-                // Try to find lead by resolved phone first, then by original LID number
-                const originalLidNumber = from.endsWith('@lid') ? jidNormalizedUser(from).split('@')[0].replace(/\D/g, '') : null;
-                let { data: lead } = await db.findLeadByPhone(phone, orgId);
-                
-                // If not found by resolved phone, try original LID number
-                if (!lead && originalLidNumber && originalLidNumber !== phone) {
-                    const { data: lidLead } = await db.findLeadByPhone(originalLidNumber, orgId);
-                    if (lidLead) {
-                        lead = lidLead;
-                        // Auto-update the lead's phone to the resolved number
-                        if (phone !== originalLidNumber) {
-                            try {
-                                await db.updateLeadPhone(lidLead.id, phone);
-                                console.log(`[Lead] Auto-updated phone for ${lidLead.id}: ${originalLidNumber} -> ${phone}`);
-                            } catch (e) { }
-                        }
-                    }
-                }
-                let leadId = lead?.id;
-
-                if (!lead && !isMe) {
+                let finalLeadId = leadId;
+                if (!finalLeadId && !isMe) {
                     const { data: newLead } = await db.createLead(msg.pushName || phone, phone, orgId);
-                    leadId = newLead?.id;
+                    finalLeadId = newLead?.id;
                 }
 
-                if (leadId) {
+                if (finalLeadId) {
                     await db.saveMessage({
                         organization_id: orgId,
-                        lead_id: leadId,
+                        lead_id: finalLeadId,
                         content: content || (mediaType === 'audio' ? 'Nota de voz' : `[${mediaType}]`),
                         sender: isMe ? 'agent' : 'client',
                         media_type: mediaType,

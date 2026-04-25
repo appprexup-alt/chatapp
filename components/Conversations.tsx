@@ -20,12 +20,16 @@ import QuickReplyManager from './QuickReplyManager';
 const Conversations: React.FC = () => {
     const isLID = (phone: string) => {
         if (!phone) return false;
+        if (phone.includes('SOLICITAR NUMERO')) return true;
         const clean = phone.replace(/\D/g, '');
         return clean.length >= 14 || /[a-zA-Z]/.test(phone) || phone.includes(':');
     };
 
     const formatPhone = (phone: string) => {
         if (!phone) return '';
+        if (phone.includes('SOLICITAR NUMERO')) {
+            return `⚠️ Sin número (Clic para añadir)`;
+        }
         if (isLID(phone)) {
             return `📱 WA-${phone.slice(0, 6)}...`;
         }
@@ -83,7 +87,15 @@ const Conversations: React.FC = () => {
         const cleanPhone = editPhoneValue.replace(/\D/g, '');
         if (!cleanPhone) return;
         try {
-            const updated = { ...selectedLead, phone: cleanPhone };
+            const isPrevLid = isLID(selectedLead.phone);
+            const whatsappId = isPrevLid ? selectedLead.phone.replace(/\D/g, '') : null;
+            
+            const updated = { 
+                ...selectedLead, 
+                phone: cleanPhone,
+                whatsapp_id: whatsappId || (selectedLead as any).whatsapp_id 
+            };
+            
             await db.updateLead(updated);
             setSelectedLead(updated);
             setLeads(prev => prev.map(l => l.id === updated.id ? updated : l));
