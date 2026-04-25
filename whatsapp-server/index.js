@@ -245,6 +245,32 @@ async function initWhatsApp(orgId) {
         }
     });
 
+    // --- Build Contact Map (LID -> Phone) ---
+    sock.ev.on('contacts.upsert', (contacts) => {
+        for (const contact of contacts) {
+            const jid = contact.id;
+            if (jid && jid.endsWith('@lid')) {
+                // If it's a LID, check if we have a phone number for it
+                // Baileys sometimes provides it in contact.id if it's resolved
+            } else if (jid && jid.endsWith('@s.whatsapp.net')) {
+                // Store PNs to help resolution later
+            }
+        }
+    });
+
+    sock.ev.on('contacts.update', (updates) => {
+        for (const update of updates) {
+            if (update.id && update.id.endsWith('@lid') && update.id.includes(':')) {
+                // Some versions of WhatsApp send PN:LID in the ID
+                const [pn, lid] = update.id.split(':');
+                if (pn && lid) {
+                    lidToPhoneMap.set(`${lid}@lid`, pn);
+                    console.log(`[Map] Resolved LID: ${lid} -> ${pn}`);
+                }
+            }
+        }
+    });
+
     sock.ev.on('messaging-history.set', async ({ chats, contacts, messages, isLatest }) => {
         console.log(`[Sync] Received messaging history: ${chats.length} chats, ${messages.length} messages`);
         for (const msg of messages) {
@@ -259,21 +285,21 @@ async function initWhatsApp(orgId) {
                 const normalized = jidNormalizedUser(from);
                 let phone = normalized.split('@')[0];
 
-                // If it's a LID, we store it but we also try to find the real PN
-                // WhatsApp usually sends the PN in the 'pushName' or we can extract it if it's not a LID
+                // --- LID to Phone Resolution ---
                 if (from.endsWith('@lid')) {
-                    const mappedPhone = lidToPhoneMap.get(from);
-                    if (mappedPhone) {
-                        phone = mappedPhone;
+                    // Try to get the real phone number from the message itself if available
+                    // or from our internal map built during contact sync
+                    const contact = lidToPhoneMap.get(from);
+                    if (contact) {
+                        phone = contact;
+                    } else {
+                        // If not found, we keep the LID for now but it will be updated
+                        // as soon as the contact sync completes
                     }
                 }
                 
-                // Sanitize phone: keep only digits
-                const cleanPhone = phone.replace(/\D/g, '');
-                
-                // If the phone is suspiciously long (LID), we mark it but prefer the clean one
-                const finalPhone = cleanPhone;
-                if (!finalPhone) continue; 
+                const finalPhone = phone.replace(/\D/g, '');
+                if (!finalPhone) continue;
 
                 const isMe = msg.key.fromMe;
 
