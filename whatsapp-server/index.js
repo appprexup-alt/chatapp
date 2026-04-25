@@ -753,20 +753,28 @@ app.delete('/instance/logout/:instanceName', async (req, res) => {
 });
 
 app.delete('/instance/delete/:instanceName', async (req, res) => {
-    const sock = sessions.get(ORG_ID);
+    const orgId = req.params.instanceName || ORG_ID;
+    console.log(`[Instance] Full reset/delete requested for: ${orgId}`);
+    const sock = sessions.get(orgId);
     if (sock) {
         try { await sock.logout(); } catch (e) { }
-        sessions.delete(ORG_ID);
+        sessions.delete(orgId);
     }
-    const sessionDir = path.join(process.cwd(), 'auth', ORG_ID);
+    const sessionDir = path.join(__dirname, 'auth', orgId);
     try {
         if (fs.existsSync(sessionDir)) {
             fs.rmSync(sessionDir, { recursive: true, force: true });
+            console.log(`[Instance] Deleted session dir: ${sessionDir}`);
         }
-    } catch (e) { }
+    } catch (e) { 
+        console.error(`[Instance] Error deleting dir: ${e.message}`);
+    }
     lastQR = null;
-    initWhatsApp(ORG_ID).catch(console.error);
-    res.json({ success: true });
+    // Short delay to ensure FS is ready
+    setTimeout(() => {
+        initWhatsApp(orgId).catch(console.error);
+    }, 1000);
+    res.json({ success: true, message: 'Instancia reiniciada desde cero.' });
 });
 
 app.post('/webhook/set/:instanceName', (req, res) => {

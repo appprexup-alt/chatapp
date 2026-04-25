@@ -236,7 +236,7 @@ const Integrations: React.FC = () => {
       onConfirm: async () => {
         setConfirmModal(prev => ({ ...prev, isOpen: false }));
         try {
-          await evolutionService.logoutInstance(currentUser!.organizationId);
+          await evolutionService.deleteInstance(currentUser!.organizationId);
           await supabase
             .from('whatsapp_config')
             .update({ status: 'disconnected', updated_at: new Date().toISOString() })
