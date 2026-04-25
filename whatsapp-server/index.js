@@ -677,8 +677,16 @@ app.delete('/db/:table/:id', async (req, res) => {
 });
 
 app.get('/instance/connect/:instanceName', (req, res) => {
-    if (lastQR) res.json({ qrcode: { base64: lastQR }, code: lastQR });
-    else res.json({ message: 'Ya conectado o QR no listo' });
+    const orgId = req.params.instanceName || ORG_ID;
+    const sock = sessions.get(orgId);
+    
+    if (lastQR) {
+        res.json({ qrcode: { base64: lastQR }, code: lastQR });
+    } else if (sock?.user) {
+        res.json({ message: 'CONNECTED', state: 'open' });
+    } else {
+        res.json({ message: 'Aún no hay QR, espera unos segundos...', state: 'connecting' });
+    }
 });
 
 app.get('/instance/connectionState/:instanceName', async (req, res) => {

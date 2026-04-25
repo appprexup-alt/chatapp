@@ -182,9 +182,14 @@ const Integrations: React.FC = () => {
     if (showQrModal && currentUser?.organizationId) {
       const poll = async () => {
         try {
-          const code = await evolutionService.getQrCode(currentUser.organizationId);
-          if (code && typeof code === 'string') {
-            setQrCode(code);
+          const response = await evolutionService.getQrCode(currentUser.organizationId);
+          if (typeof response === 'string' && response.length > 50) {
+            setQrCode(response);
+          } else if (typeof response === 'object' && (response as any).raw?.message === 'CONNECTED') {
+            // Already connected!
+            setShowQrModal(false);
+            addNotification({ title: 'Sincronizado', message: 'WhatsApp ya estaba conectado.', type: 'success' });
+            loadWaConfig(currentUser.organizationId);
           }
         } catch (e) { }
       };
@@ -198,7 +203,7 @@ const Integrations: React.FC = () => {
     if (!currentUser?.organizationId) return;
     setQrCode(null);
     setShowQrModal(true);
-    setDebugLog(["[Info] Obteniendo código QR de conexión..."]);
+    setDebugLog(["[Info] Obteniendo código QR de conexión...", "[Info] Esto puede tardar 10-15 segundos si el servidor está reiniciando."]);
   };
 
   const checkConnectionStatus = async () => {
@@ -236,18 +241,24 @@ const Integrations: React.FC = () => {
       onConfirm: async () => {
         setConfirmModal(prev => ({ ...prev, isOpen: false }));
         try {
+          setDebugLog(prev => [...prev, "[Info] Iniciando Reset total del servidor..."]);
           await evolutionService.deleteInstance(currentUser!.organizationId);
+          setDebugLog(prev => [...prev, "[Info] Servidor limpiado. Esperando reinicio (10s)..."]);
+          
           await supabase
             .from('whatsapp_config')
             .update({ status: 'disconnected', updated_at: new Date().toISOString() })
             .eq('organization_id', currentUser!.organizationId);
 
-          addNotification({ title: 'Desconectado', message: 'Sesión cerrada.', type: 'success' });
+          addNotification({ title: 'Reseteado', message: 'Servidor limpio. Espera 10 segundos y genera el QR.', type: 'success' });
           loadWaConfig(currentUser!.organizationId);
           setQrCode(null);
         } catch (error: any) {
+          setDebugLog(prev => [...prev, `[Error] No se pudo resetear: ${error.message}`]);
           addNotification({ title: 'Aviso', message: 'Estado local reseteado.', type: 'warning' });
           loadWaConfig(currentUser!.organizationId);
+        }
+      }
         }
       }
     });

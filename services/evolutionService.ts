@@ -135,11 +135,10 @@ class EvolutionService {
         const qr = data.base64 || data.code || data.qrcode?.base64 || data.qrcode?.code || data.qrcode;
 
         if (!qr) {
-            if (data.error || data.message) return { error: data.error || data.message, raw: data };
-            return { error: 'No se encontró QR en la respuesta', raw: data };
+            return { error: data.error || data.message || 'No QR', raw: data };
         }
 
-        return typeof qr === 'string' ? qr : (qr.base64 || qr.code);
+        return typeof qr === 'string' ? qr : (qr.base64 || qr.code || { error: 'Invalid QR format', raw: data });
     }
 
     async checkConnection(organizationId: string) {
