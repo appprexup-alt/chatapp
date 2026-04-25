@@ -181,7 +181,7 @@ async function initWhatsApp(orgId) {
         logger,
         auth: state,
         printQRInTerminal: true,
-        browser: Browsers.macOS('Desktop'),
+        browser: ['Ubuntu', 'Chrome', '20.0.04'],
         syncFullHistory: false
     });
 
