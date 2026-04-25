@@ -20,19 +20,14 @@ import QuickReplyManager from './QuickReplyManager';
 const Conversations: React.FC = () => {
     const formatPhone = (phone: string) => {
         if (!phone) return '';
-        // If it's a long numeric ID or contains non-digits, label it as ID
-        if (phone.length > 15 || /[a-zA-Z]/.test(phone) || phone.includes(':') || phone.includes('-')) {
-            return `ID: ${phone.slice(0, 15)}...`;
+        // Si es un ID largo de WhatsApp (LID)
+        if (phone.length > 13 || /[a-zA-Z]/.test(phone) || phone.includes(':')) {
+            return `ID: ${phone.slice(0, 10)}...`;
         }
         
         const clean = phone.replace(/\D/g, '');
         if (!clean) return phone;
-
-        // Basic formatting attempt
-        if (clean.length >= 10) {
-            return `+${clean}`;
-        }
-        return clean;
+        return `+${clean}`;
     };
 
     const { addNotification } = useNotification();

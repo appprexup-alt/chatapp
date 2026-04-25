@@ -259,19 +259,21 @@ async function initWhatsApp(orgId) {
                 const normalized = jidNormalizedUser(from);
                 let phone = normalized.split('@')[0];
 
-                // If it's a LID, try to find the PN in our map
+                // If it's a LID, we store it but we also try to find the real PN
+                // WhatsApp usually sends the PN in the 'pushName' or we can extract it if it's not a LID
                 if (from.endsWith('@lid')) {
-                    if (lidToPhoneMap.has(from)) {
-                        phone = lidToPhoneMap.get(from);
-                    } else {
-                        // Skip unresolved LIDs if we strictly want phone numbers
-                        // or continue and allow the ID to be the 'phone' for now
+                    const mappedPhone = lidToPhoneMap.get(from);
+                    if (mappedPhone) {
+                        phone = mappedPhone;
                     }
                 }
                 
                 // Sanitize phone: keep only digits
-                phone = phone.replace(/\D/g, '');
-                if (!phone) continue; // Skip if no numeric part found (unresolved LID or invalid)
+                const cleanPhone = phone.replace(/\D/g, '');
+                
+                // If the phone is suspiciously long (LID), we mark it but prefer the clean one
+                const finalPhone = cleanPhone;
+                if (!finalPhone) continue; 
 
                 const isMe = msg.key.fromMe;
 
