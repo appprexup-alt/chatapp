@@ -294,6 +294,7 @@ const Integrations: React.FC = () => {
 
             <p className="text-text-muted text-[10.5px] mb-4 font-medium opacity-70 leading-relaxed">{item.description}</p>
 
+            <div className="bg-surface border border-border-color rounded-[1.5rem] p-3 space-y-3 shadow-sm relative overflow-hidden">
               <div className="flex justify-between items-center">
                 <span className="text-[10px] font-bold text-text-muted uppercase tracking-[0.15em] opacity-40">Estado de Conexión</span>
                 <span className={`${waConfig?.status === 'connected' ? 'text-green-500' : 'text-orange-500'} text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 bg-background/50 px-3 py-1 rounded-full border border-current/10`}>
