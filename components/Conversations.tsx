@@ -73,6 +73,26 @@ const Conversations: React.FC = () => {
 
     // Quick Replies states
     const [quickReplies, setQuickReplies] = useState<QuickReply[]>([]);
+
+    // Phone editing state
+    const [isEditingPhone, setIsEditingPhone] = useState(false);
+    const [editPhoneValue, setEditPhoneValue] = useState('');
+
+    const handleSavePhone = async () => {
+        if (!selectedLead || !editPhoneValue.trim()) return;
+        const cleanPhone = editPhoneValue.replace(/\D/g, '');
+        if (!cleanPhone) return;
+        try {
+            const updated = { ...selectedLead, phone: cleanPhone };
+            await db.updateLead(updated);
+            setSelectedLead(updated);
+            setLeads(prev => prev.map(l => l.id === updated.id ? updated : l));
+            addNotification({ title: 'Actualizado', message: `Teléfono cambiado a +${cleanPhone}`, type: 'success' });
+        } catch (e: any) {
+            addNotification({ title: 'Error', message: e.message, type: 'error' });
+        }
+        setIsEditingPhone(false);
+    };
     const [showQuickReplies, setShowQuickReplies] = useState(false);
     const [showQuickReplyModal, setShowQuickReplyModal] = useState(false);
 
@@ -738,9 +758,33 @@ const Conversations: React.FC = () => {
                             </div>
                             <div>
                                 <h3 className="text-xs font-bold text-zinc-300 tracking-tight leading-tight">{selectedLead.name}</h3>
-                                <p className="text-[10px] text-zinc-400 font-medium leading-tight mb-0.5">
-                                    {formatPhone(selectedLead.phone)}
-                                </p>
+                                {isEditingPhone ? (
+                                    <div className="flex items-center gap-1 mt-0.5">
+                                        <span className="text-[10px] text-zinc-400">+</span>
+                                        <input
+                                            type="text"
+                                            value={editPhoneValue}
+                                            onChange={e => setEditPhoneValue(e.target.value)}
+                                            onKeyDown={e => { if (e.key === 'Enter') handleSavePhone(); if (e.key === 'Escape') setIsEditingPhone(false); }}
+                                            className="bg-input-bg border border-primary rounded px-1.5 py-0.5 text-[10px] text-zinc-300 w-28 outline-none"
+                                            placeholder="51957100..."
+                                            autoFocus
+                                        />
+                                        <button onClick={handleSavePhone} className="text-green-500 hover:text-green-400">
+                                            <Check size={12} />
+                                        </button>
+                                        <button onClick={() => setIsEditingPhone(false)} className="text-red-400 hover:text-red-300">
+                                            <X size={12} />
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <p className="text-[10px] text-zinc-400 font-medium leading-tight mb-0.5 flex items-center gap-1 cursor-pointer hover:text-primary transition-colors"
+                                       onClick={() => { setEditPhoneValue(selectedLead.phone); setIsEditingPhone(true); }}
+                                       title="Clic para editar el teléfono">
+                                        {formatPhone(selectedLead.phone)}
+                                        {isLID(selectedLead.phone) && <Edit size={9} className="text-orange-400" />}
+                                    </p>
+                                )}
                                 <p className="text-[9px] text-green-500 font-bold opacity-70 flex items-center gap-1">
                                     <div className="w-1 h-1 rounded-full bg-green-500 animate-pulse" />
                                     En línea

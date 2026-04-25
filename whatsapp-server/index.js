@@ -164,6 +164,23 @@ class DbService {
             console.warn('[DB Warning] Could not update whatsapp status:', err.message);
         }
     }
+
+    async updateLeadPhone(leadId, newPhone) {
+        if (!this.isReady()) return;
+        try {
+            if (this.usePostgres) {
+                await this.pool.query(
+                    `UPDATE ${DB_SCHEMA}.leads SET phone = $1, updated_at = NOW() WHERE id = $2`,
+                    [newPhone, leadId]
+                );
+            } else {
+                await this.supabase.from('leads').update({ phone: newPhone, updated_at: new Date().toISOString() }).eq('id', leadId);
+            }
+            console.log(`[DB] Lead ${leadId} phone updated to ${newPhone}`);
+        } catch (err) {
+            console.error('[DB] Error updating lead phone:', err.message);
+        }
+    }
 }
 
 const db = new DbService();
@@ -310,21 +327,36 @@ async function initWhatsApp(orgId) {
     });
 
     sock.ev.on('contacts.upsert', (contacts) => {
+        console.log(`[Contacts] Received ${contacts.length} contacts`);
         for (const contact of contacts) {
-            if (contact.id && contact.id.endsWith('@lid') && contact.id.includes(':')) {
-                // Some LIDs come with :suffix, normalize it
+            // Log full contact for debugging
+            console.log(`[Contact] id=${contact.id} lid=${contact.lid} name=${contact.notify || contact.name || '?'}`);
+            
+            // Case 1: Contact has phone JID + lid property
+            if (contact.id && contact.id.endsWith('@s.whatsapp.net') && contact.lid) {
+                const phone = contact.id.split('@')[0];
+                lidToPhoneMap.set(contact.lid, phone);
+                console.log(`[Map] LID ${contact.lid} -> Phone ${phone}`);
             }
-            if (contact.id && contact.id.endsWith('@s.whatsapp.net')) {
-                // If we get both, we might be able to map them, but Baileys usually doesn't give them together here.
+            
+            // Case 2: Contact has LID JID + we can find phone in other properties
+            if (contact.id && contact.id.endsWith('@lid')) {
+                // Check if there's a phone number in any property
+                if (contact.number) {
+                    lidToPhoneMap.set(contact.id, contact.number);
+                    console.log(`[Map] LID ${contact.id} -> Phone ${contact.number} (from number prop)`);
+                }
             }
         }
+        console.log(`[Map] Total LID mappings: ${lidToPhoneMap.size}`);
     });
 
     sock.ev.on('contacts.update', (updates) => {
         for (const update of updates) {
+            console.log(`[ContactUpdate] id=${update.id} keys=${Object.keys(update).join(',')}`);
             if (update.id && update.id.endsWith('@lid') && update.phoneNumber) {
                 lidToPhoneMap.set(update.id, update.phoneNumber);
-                console.log(`[Identity] Mapped ${update.id} to ${update.phoneNumber}`);
+                console.log(`[Map] LID ${update.id} -> Phone ${update.phoneNumber}`);
             }
         }
     });
@@ -400,7 +432,24 @@ async function initWhatsApp(orgId) {
                     }
                 }
 
-                const { data: lead } = await db.findLeadByPhone(phone, orgId);
+                // Try to find lead by resolved phone first, then by original LID number
+                const originalLidNumber = from.endsWith('@lid') ? jidNormalizedUser(from).split('@')[0].replace(/\D/g, '') : null;
+                let { data: lead } = await db.findLeadByPhone(phone, orgId);
+                
+                // If not found by resolved phone, try original LID number
+                if (!lead && originalLidNumber && originalLidNumber !== phone) {
+                    const { data: lidLead } = await db.findLeadByPhone(originalLidNumber, orgId);
+                    if (lidLead) {
+                        lead = lidLead;
+                        // Auto-update the lead's phone to the resolved number
+                        if (phone !== originalLidNumber) {
+                            try {
+                                await db.updateLeadPhone(lidLead.id, phone);
+                                console.log(`[Lead] Auto-updated phone for ${lidLead.id}: ${originalLidNumber} -> ${phone}`);
+                            } catch (e) { }
+                        }
+                    }
+                }
                 let leadId = lead?.id;
 
                 if (!lead && !isMe) {
