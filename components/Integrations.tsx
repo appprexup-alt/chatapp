@@ -76,13 +76,35 @@ const Integrations: React.FC = () => {
   }, []);
 
   const loadWaConfig = async (orgId: string) => {
-    const { data } = await supabase
-      .from('whatsapp_config')
-      .select('*')
-      .eq('organization_id', orgId)
-      .maybeSingle();
-    if (data) setWaConfig(data);
+    try {
+      // Load from server proxy (works in both local and deployed)
+      const baseUrl = import.meta.env.VITE_API_URL || `http://${window.location.hostname}:4000`;
+      const response = await fetch(`${baseUrl}/db/whatsapp_config?orgId=${orgId}`);
+      const configs = await response.json();
+      if (configs && configs[0]) {
+        setWaConfig(configs[0]);
+        return;
+      }
+    } catch(e) {}
+    // Fallback to Supabase direct
+    try {
+      const { data } = await supabase
+        .from('whatsapp_config')
+        .select('*')
+        .eq('organization_id', orgId)
+        .maybeSingle();
+      if (data) setWaConfig(data);
+    } catch(e) {}
   };
+
+  // Periodic status refresh (every 10s) - needed because direct PG updates don't trigger Supabase Realtime
+  useEffect(() => {
+    if (!currentUser?.organizationId) return;
+    const interval = setInterval(() => {
+      loadWaConfig(currentUser.organizationId);
+    }, 10000);
+    return () => clearInterval(interval);
+  }, [currentUser?.organizationId]);
 
   useEffect(() => {
     if (!currentUser?.organizationId) return;
@@ -182,22 +204,27 @@ const Integrations: React.FC = () => {
     if (showQrModal && currentUser?.organizationId) {
       const poll = async () => {
         try {
+          // First check if already connected
+          const connected = await whatsappService.checkConnection(currentUser.organizationId);
+          if (connected) {
+            setShowQrModal(false);
+            setWaConfig(prev => prev ? { ...prev, status: 'connected' } : { status: 'connected' } as any);
+            addNotification({ title: '✅ Conectado', message: 'WhatsApp vinculado exitosamente.', type: 'success' });
+            loadWaConfig(currentUser.organizationId);
+            return;
+          }
+
+          // If not connected, try to get QR
           const response = await whatsappService.getQrCode(currentUser.organizationId);
           if (typeof response === 'string' && response.length > 50) {
             setQrCode(response);
-            setDebugLog(prev => [...prev, "[OK] QR recibido. Escanea con WhatsApp."]);
+            setDebugLog(prev => {
+              if (prev.some(l => l.includes('QR recibido'))) return prev;
+              return [...prev, "[OK] QR recibido. Escanea con WhatsApp."];
+            });
           } else if (typeof response === 'object') {
             const raw = (response as any).raw;
-            if (raw?.message === 'CONNECTED' || raw?.state === 'open') {
-              setShowQrModal(false);
-              addNotification({ title: '✅ Conectado', message: 'WhatsApp ya está vinculado.', type: 'success' });
-              try {
-                await supabase.from('whatsapp_config')
-                  .update({ status: 'connected', updated_at: new Date().toISOString() })
-                  .eq('organization_id', currentUser.organizationId);
-              } catch(e) {}
-              loadWaConfig(currentUser.organizationId);
-            } else if (raw?.state === 'connecting') {
+            if (raw?.state === 'connecting') {
               setDebugLog(prev => {
                 if (prev[prev.length-1]?.includes('Servidor iniciando')) return prev;
                 return [...prev, "[Info] Servidor iniciando conexión..."];

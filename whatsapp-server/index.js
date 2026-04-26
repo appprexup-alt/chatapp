@@ -58,13 +58,24 @@ const SUPABASE_KEY = process.env.SUPABASE_KEY;
 const DATABASE_URL = process.env.DATABASE_URL;
 const ORG_ID = process.env.ORG_ID || '00000000-0000-0000-0000-000000000000';
 const BASE_URL = process.env.BASE_URL || ''; // Public URL of the API
-const DB_SCHEMA = process.env.DB_SCHEMA || 'public'; // Database schema (public for Supabase, proxied for local)
+const DB_SCHEMA = process.env.DB_SCHEMA || 'public';
 
-const logger = pino({ level: 'debug' });
+// Startup diagnostics
+console.log('=== WhatsApp Server Starting ===');
+console.log(`  PORT: ${PORT}`);
+console.log(`  ORG_ID: ${ORG_ID}`);
+console.log(`  DB_SCHEMA: ${DB_SCHEMA}`);
+console.log(`  DATABASE_URL: ${DATABASE_URL ? 'SET (' + DATABASE_URL.split('@')[1]?.split('/')[0] + ')' : 'NOT SET'}`);
+console.log(`  SUPABASE_URL: ${SUPABASE_URL || 'NOT SET'}`);
+console.log(`  SUPABASE_KEY: ${SUPABASE_KEY ? 'SET (len=' + SUPABASE_KEY.length + ')' : 'NOT SET'}`);
+console.log(`  BASE_URL: ${BASE_URL || 'NOT SET (will auto-detect)'}`);
+console.log('================================');
 
-// Global socket map to support future multiple instances if needed
+const logger = pino({ level: 'warn' });
+
+// Global socket map
 const sessions = new Map();
-const lidToPhoneMap = new Map(); // Store LID -> Phone mapping
+const lidToPhoneMap = new Map();
 let lastQR = null;
 
 // --- Database Service Wrapper ---
@@ -178,20 +189,27 @@ class DbService {
 
     async updateWhatsappStatus(orgId, status, extra = {}) {
         if (!this.isReady()) return;
+        console.log(`[DB] Updating whatsapp_config: orgId=${orgId}, status=${status}`);
         try {
             if (this.usePostgres) {
-                let q = `UPDATE ${DB_SCHEMA}.whatsapp_config SET status = $1, updated_at = NOW()`;
-                const p = [status];
-                let i = 2;
-                if (extra.qr_code !== undefined) { q += `, qr_code = $${i++}`; p.push(extra.qr_code); }
-                if (extra.phone_number !== undefined) { q += `, phone_number = $${i++}`; p.push(extra.phone_number); }
-                q += ` WHERE organization_id = $${i}`; p.push(orgId);
-                await this.pool.query(q, p);
+                // Simple safe update - just status first
+                await this.pool.query(
+                    `UPDATE ${DB_SCHEMA}.whatsapp_config SET status = $1, updated_at = NOW() WHERE organization_id = $2`,
+                    [status, orgId]
+                );
+                // Try updating extra columns individually (they might not exist)
+                if (extra.qr_code !== undefined) {
+                    try { await this.pool.query(`UPDATE ${DB_SCHEMA}.whatsapp_config SET qr_code = $1 WHERE organization_id = $2`, [extra.qr_code, orgId]); } catch(e) {}
+                }
+                if (extra.phone_number !== undefined) {
+                    try { await this.pool.query(`UPDATE ${DB_SCHEMA}.whatsapp_config SET phone_number = $1 WHERE organization_id = $2`, [extra.phone_number, orgId]); } catch(e) {}
+                }
             } else {
-                await this.supabase.from('whatsapp_config').update({ status, ...extra }).eq('organization_id', orgId);
+                await this.supabase.from('whatsapp_config').update({ status, ...extra, updated_at: new Date().toISOString() }).eq('organization_id', orgId);
             }
+            console.log(`[DB] ✅ Status updated to: ${status}`);
         } catch (err) {
-            console.warn('[DB Warning] Could not update whatsapp status:', err.message);
+            console.error('[DB] ❌ Failed to update status:', err.message);
         }
     }
 
