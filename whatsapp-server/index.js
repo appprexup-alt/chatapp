@@ -90,17 +90,28 @@ class DbService {
     async findLeadByPhone(phoneOrLid, orgId) {
         if (!this.isReady()) return { data: null };
         const clean = phoneOrLid.replace(/\D/g, '');
+        if (!clean) return { data: null };
         if (this.usePostgres) {
-            const { rows } = await this.pool.query(
-                `SELECT * FROM ${DB_SCHEMA}.leads WHERE organization_id = $1 AND (phone = $2 OR whatsapp_id = $2 OR phone LIKE $3 OR $2 LIKE '%' || phone)`,
-                [orgId, clean, `%${clean}`]
-            );
-            return { data: rows[0] };
+            try {
+                // Try with whatsapp_id first
+                const { rows } = await this.pool.query(
+                    `SELECT * FROM ${DB_SCHEMA}.leads WHERE organization_id = $1 AND (phone = $2 OR whatsapp_id = $2 OR phone LIKE $3 OR $2 LIKE '%' || phone) LIMIT 1`,
+                    [orgId, clean, `%${clean}`]
+                );
+                return { data: rows[0] };
+            } catch (e) {
+                // whatsapp_id column might not exist, fallback
+                const { rows } = await this.pool.query(
+                    `SELECT * FROM ${DB_SCHEMA}.leads WHERE organization_id = $1 AND (phone = $2 OR phone LIKE $3 OR $2 LIKE '%' || phone) LIMIT 1`,
+                    [orgId, clean, `%${clean}`]
+                );
+                return { data: rows[0] };
+            }
         } else {
             const { data } = await this.supabase.from('leads').select('*').eq('organization_id', orgId);
             const lead = data?.find(l => {
                 if (l.whatsapp_id === clean) return true;
-                const lPhone = l.phone.replace(/\D/g, '');
+                const lPhone = (l.phone || '').replace(/\D/g, '');
                 return lPhone.endsWith(clean) || clean.endsWith(lPhone);
             });
             return { data: lead };
@@ -111,6 +122,7 @@ class DbService {
         if (!this.isReady()) return { data: null };
         const clean = phoneOrLid.replace(/\D/g, '');
         const isLid = clean.length >= 14;
+        const displayPhone = isLid ? clean : clean; // always use the number we have
 
         let firstStageId = null;
         try {
@@ -123,23 +135,31 @@ class DbService {
             }
         } catch (e) { }
 
-        const leadData = {
-            organization_id: orgId,
-            name: name || 'Nuevo Contacto',
-            phone: isLid ? `SOLICITAR NUMERO (${clean.slice(0,4)})` : clean,
-            whatsapp_id: isLid ? clean : null,
-            status: 'Nuevo',
-            source: 'WhatsApp',
-            pipeline_stage_id: firstStageId
-        };
-
         if (this.usePostgres) {
-            const { rows } = await this.pool.query(
-                `INSERT INTO ${DB_SCHEMA}.leads (organization_id, name, phone, whatsapp_id, status, source, pipeline_stage_id) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
-                [leadData.organization_id, leadData.name, leadData.phone, leadData.whatsapp_id, leadData.status, leadData.source, leadData.pipeline_stage_id]
-            );
-            return { data: rows[0] };
+            try {
+                // Try with whatsapp_id column
+                const { rows } = await this.pool.query(
+                    `INSERT INTO ${DB_SCHEMA}.leads (organization_id, name, phone, whatsapp_id, status, source, pipeline_stage_id) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+                    [orgId, name || 'Nuevo Contacto', displayPhone, isLid ? clean : null, 'Nuevo', 'WhatsApp', firstStageId]
+                );
+                return { data: rows[0] };
+            } catch (e) {
+                // Fallback without whatsapp_id
+                const { rows } = await this.pool.query(
+                    `INSERT INTO ${DB_SCHEMA}.leads (organization_id, name, phone, status, source, pipeline_stage_id) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+                    [orgId, name || 'Nuevo Contacto', displayPhone, 'Nuevo', 'WhatsApp', firstStageId]
+                );
+                return { data: rows[0] };
+            }
         } else {
+            const leadData = {
+                organization_id: orgId,
+                name: name || 'Nuevo Contacto',
+                phone: displayPhone,
+                status: 'Nuevo',
+                source: 'WhatsApp',
+                pipeline_stage_id: firstStageId
+            };
             return await this.supabase.from('leads').insert([leadData]).select().single();
         }
     }
@@ -384,9 +404,9 @@ async function initWhatsApp(orgId) {
         if (m.type !== 'notify') return;
         for (const msg of m.messages) {
             try {
+                if (!msg.message) continue; // protocol messages have no .message
                 const from = msg.key.remoteJid;
-                if (from === 'status@broadcast' || from.endsWith('@g.us') || from.endsWith('@newsletter')) {
-                    console.log(`[Msg] Skipping non-direct JID: ${from}`);
+                if (!from || from === 'status@broadcast' || from.endsWith('@g.us') || from.endsWith('@newsletter')) {
                     continue;
                 }
 
@@ -396,47 +416,55 @@ async function initWhatsApp(orgId) {
                 // 1. Try to resolve LID from memory map
                 if (from.endsWith('@lid') && lidToPhoneMap.has(from)) {
                     phone = lidToPhoneMap.get(from);
-                    console.log(`[Msg] LID resolved from memory: ${phone}`);
+                    console.log(`[Msg] LID resolved: ${phone}`);
                 }
 
-                // 2. IMPORTANT: Try to find lead by LID or Phone to get the REAL number
-                const cleanInput = phone.replace(/\D/g, '');
-                const { data: lead } = await db.findLeadByPhone(cleanInput, orgId);
-                
-                // If we found a lead and it has a real phone number (not a LID), use it!
-                if (lead && lead.phone && !lead.phone.includes('SOLICITAR')) {
-                    phone = lead.phone;
-                }
-
-                // Sanitize final phone
+                // Sanitize phone
                 phone = phone.replace(/\D/g, '');
                 if (!phone) continue;
 
                 const isMe = msg.key.fromMe;
-                const leadId = lead?.id;
 
-                let content = msg.message.conversation || msg.message.extendedTextMessage?.text || '';
+                // 2. Find or create lead
+                let { data: lead } = await db.findLeadByPhone(phone, orgId);
+                
+                if (!lead && !isMe) {
+                    const { data: newLead } = await db.createLead(msg.pushName || phone, phone, orgId);
+                    lead = newLead;
+                }
+
+                if (!lead) continue;
+
+                // If lead has real phone, use it
+                if (lead.phone && !lead.phone.includes('SOLICITAR')) {
+                    phone = lead.phone.replace(/\D/g, '');
+                }
+
+                // 3. Extract content
+                let content = msg.message?.conversation 
+                    || msg.message?.extendedTextMessage?.text 
+                    || '';
                 let mediaType = 'text';
                 let mediaUrl = null;
 
-                if (msg.message.imageMessage) {
+                if (msg.message?.imageMessage) {
                     mediaType = 'image';
                     content = msg.message.imageMessage.caption || '';
-                } else if (msg.message.videoMessage) {
+                } else if (msg.message?.videoMessage) {
                     mediaType = 'video';
                     content = msg.message.videoMessage.caption || '';
-                } else if (msg.message.audioMessage) {
+                } else if (msg.message?.audioMessage) {
                     mediaType = 'audio';
-                } else if (msg.message.documentMessage) {
+                } else if (msg.message?.documentMessage) {
                     mediaType = 'document';
                     content = msg.message.documentMessage.fileName || '';
                 }
 
+                // 4. Download media if needed
                 if (mediaType !== 'text') {
                     try {
                         const buffer = await downloadMediaMessage(msg, 'buffer', {}, { logger, reuploadRequest: sock.updateMediaMessage });
-                        // Simple extension detection
-                        const mime = msg.message.imageMessage?.mimetype || msg.message.videoMessage?.mimetype || msg.message.audioMessage?.mimetype || msg.message.documentMessage?.mimetype || '';
+                        const mime = msg.message?.imageMessage?.mimetype || msg.message?.videoMessage?.mimetype || msg.message?.audioMessage?.mimetype || msg.message?.documentMessage?.mimetype || '';
                         let ext = 'bin';
                         if (mime.includes('image/jpeg')) ext = 'jpg';
                         else if (mime.includes('image/png')) ext = 'png';
@@ -448,35 +476,30 @@ async function initWhatsApp(orgId) {
                         const filePath = path.join(__dirname, 'uploads', fileName);
                         fs.writeFileSync(filePath, buffer);
                         
-                        // Use BASE_URL from env (req doesn't exist in websocket context)
                         const detectedBaseUrl = BASE_URL || `http://localhost:${PORT}`;
                         mediaUrl = `${detectedBaseUrl}/uploads/${fileName}`;
                     } catch (err) {
-                        console.error('[Media] Download failed:', err);
+                        console.error('[Media] Download failed:', err.message);
                     }
                 }
 
-                let finalLeadId = leadId;
-                if (!finalLeadId && !isMe) {
-                    const { data: newLead } = await db.createLead(msg.pushName || phone, phone, orgId);
-                    finalLeadId = newLead?.id;
-                }
+                // 5. Save message
+                const ts = msg.messageTimestamp ? new Date(Number(msg.messageTimestamp) * 1000).toISOString() : new Date().toISOString();
+                await db.saveMessage({
+                    organization_id: orgId,
+                    lead_id: lead.id,
+                    content: content || (mediaType === 'audio' ? 'Nota de voz' : `[${mediaType}]`),
+                    sender: isMe ? 'agent' : 'client',
+                    media_type: mediaType,
+                    media_url: mediaUrl,
+                    media_filename: msg.message?.documentMessage?.fileName || null,
+                    payload: msg.message,
+                    created_at: ts
+                });
 
-                if (finalLeadId) {
-                    await db.saveMessage({
-                        organization_id: orgId,
-                        lead_id: finalLeadId,
-                        content: content || (mediaType === 'audio' ? 'Nota de voz' : `[${mediaType}]`),
-                        sender: isMe ? 'agent' : 'client',
-                        media_type: mediaType,
-                        media_url: mediaUrl,
-                        media_filename: msg.message.documentMessage?.fileName || null,
-                        payload: msg.message,
-                        created_at: new Date(msg.messageTimestamp * 1000).toISOString()
-                    });
-                }
+                console.log(`[Msg] ${isMe ? 'OUT' : 'IN'} | ${phone} | ${mediaType} | ${content?.substring(0, 30) || '...'}`);
             } catch (err) {
-                console.error('[Msg Error]', err.message);
+                console.error('[Msg Error]', err.message, err.stack?.split('\n')[1]);
             }
         }
     });
