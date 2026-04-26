@@ -177,26 +177,20 @@ class DbService {
 
     async saveMessage(msgData) {
         if (!this.isReady()) return;
+        const sender = msgData.sender || 'client';
         try {
             if (this.usePostgres) {
-                try {
-                    await this.pool.query(
-                        `INSERT INTO ${DB_SCHEMA}.messages (organization_id, lead_id, content, sender, media_type, media_url, media_filename, payload) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-                        [msgData.organization_id, msgData.lead_id, msgData.content, msgData.sender, msgData.media_type || 'text', msgData.media_url, msgData.media_filename, JSON.stringify(msgData.payload || {})]
-                    );
-                } catch (colErr) {
-                    // Fallback: payload column might not exist
-                    await this.pool.query(
-                        `INSERT INTO ${DB_SCHEMA}.messages (organization_id, lead_id, content, sender, media_type, media_url, media_filename) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-                        [msgData.organization_id, msgData.lead_id, msgData.content, msgData.sender, msgData.media_type || 'text', msgData.media_url, msgData.media_filename]
-                    );
-                }
-                console.log(`[DB] ✅ Message saved for lead ${msgData.lead_id}`);
+                await this.pool.query(
+                    `INSERT INTO ${DB_SCHEMA}.messages (organization_id, lead_id, content, sender, media_type, media_url, media_filename) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+                    [msgData.organization_id, msgData.lead_id, msgData.content || '', sender, msgData.media_type || 'text', msgData.media_url || null, msgData.media_filename || null]
+                );
+                console.log(`[DB] ✅ Message saved | lead=${msgData.lead_id} | sender=${sender}`);
             } else {
-                await this.supabase.from('messages').insert([msgData]);
+                const { payload, ...clean } = msgData;
+                await this.supabase.from('messages').insert([{ ...clean, sender }]);
             }
         } catch (err) {
-            console.error('[DB] ❌ Failed to save message:', err.message);
+            console.error('[DB] ❌ saveMessage failed:', err.message);
         }
     }
 
@@ -525,9 +519,7 @@ async function initWhatsApp(orgId) {
                     sender: isMe ? 'agent' : 'client',
                     media_type: mediaType,
                     media_url: mediaUrl,
-                    media_filename: msg.message?.documentMessage?.fileName || null,
-                    payload: msg.message,
-                    created_at: ts
+                    media_filename: msg.message?.documentMessage?.fileName || null
                 });
 
                 console.log(`[Msg] ${isMe ? 'OUT' : 'IN'} | ${phone} | ${mediaType} | ${content?.substring(0, 30) || '...'}`);
