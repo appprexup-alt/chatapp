@@ -177,25 +177,40 @@ class DbService {
 
     async saveMessage(msgData) {
         if (!this.isReady()) return;
-        if (this.usePostgres) {
-            await this.pool.query(
-                `INSERT INTO ${DB_SCHEMA}.messages (organization_id, lead_id, content, sender, media_type, media_url, media_filename, payload) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-                [msgData.organization_id, msgData.lead_id, msgData.content, msgData.sender, msgData.media_type, msgData.media_url, msgData.media_filename, JSON.stringify(msgData.payload)]
-            );
-        } else {
-            await this.supabase.from('messages').insert([msgData]);
+        try {
+            if (this.usePostgres) {
+                try {
+                    await this.pool.query(
+                        `INSERT INTO ${DB_SCHEMA}.messages (organization_id, lead_id, content, sender, media_type, media_url, media_filename, payload) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+                        [msgData.organization_id, msgData.lead_id, msgData.content, msgData.sender, msgData.media_type || 'text', msgData.media_url, msgData.media_filename, JSON.stringify(msgData.payload || {})]
+                    );
+                } catch (colErr) {
+                    // Fallback: payload column might not exist
+                    await this.pool.query(
+                        `INSERT INTO ${DB_SCHEMA}.messages (organization_id, lead_id, content, sender, media_type, media_url, media_filename) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+                        [msgData.organization_id, msgData.lead_id, msgData.content, msgData.sender, msgData.media_type || 'text', msgData.media_url, msgData.media_filename]
+                    );
+                }
+                console.log(`[DB] ✅ Message saved for lead ${msgData.lead_id}`);
+            } else {
+                await this.supabase.from('messages').insert([msgData]);
+            }
+        } catch (err) {
+            console.error('[DB] ❌ Failed to save message:', err.message);
         }
     }
 
     async updateWhatsappStatus(orgId, status, extra = {}) {
         if (!this.isReady()) return;
-        console.log(`[DB] Updating whatsapp_config: orgId=${orgId}, status=${status}`);
+        console.log(`[DB] Upserting whatsapp_config: orgId=${orgId}, status=${status}`);
         try {
             if (this.usePostgres) {
-                // Simple safe update - just status first
+                // UPSERT - insert if not exists, update if exists
                 await this.pool.query(
-                    `UPDATE ${DB_SCHEMA}.whatsapp_config SET status = $1, updated_at = NOW() WHERE organization_id = $2`,
-                    [status, orgId]
+                    `INSERT INTO ${DB_SCHEMA}.whatsapp_config (organization_id, status, updated_at)
+                     VALUES ($1, $2, NOW())
+                     ON CONFLICT (organization_id) DO UPDATE SET status = $2, updated_at = NOW()`,
+                    [orgId, status]
                 );
                 // Try updating extra columns individually (they might not exist)
                 if (extra.qr_code !== undefined) {
@@ -205,11 +220,11 @@ class DbService {
                     try { await this.pool.query(`UPDATE ${DB_SCHEMA}.whatsapp_config SET phone_number = $1 WHERE organization_id = $2`, [extra.phone_number, orgId]); } catch(e) {}
                 }
             } else {
-                await this.supabase.from('whatsapp_config').update({ status, ...extra, updated_at: new Date().toISOString() }).eq('organization_id', orgId);
+                await this.supabase.from('whatsapp_config').upsert({ organization_id: orgId, status, ...extra, updated_at: new Date().toISOString() }, { onConflict: 'organization_id' });
             }
-            console.log(`[DB] ✅ Status updated to: ${status}`);
+            console.log(`[DB] ✅ Status upserted to: ${status}`);
         } catch (err) {
-            console.error('[DB] ❌ Failed to update status:', err.message);
+            console.error('[DB] ❌ Failed to upsert status:', err.message);
         }
     }
 
