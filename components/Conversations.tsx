@@ -180,6 +180,7 @@ const Conversations: React.FC = () => {
         if (selectedLead) {
             loadMessages(selectedLead.id);
 
+            // Supabase Realtime (works if Supabase is properly configured)
             const channel = supabase
                 .channel(`chat_${selectedLead.id}`)
                 .on('postgres_changes', {
@@ -189,7 +190,6 @@ const Conversations: React.FC = () => {
                     filter: `lead_id=eq.${selectedLead.id}`
                 }, (payload) => {
                     const msg = payload.new as any;
-                    console.log('[Realtime] Message for selected lead:', msg);
                     setMessages(prev => {
                         if (prev.some(m => m.id === msg.id)) return prev;
                         return [...prev, {
@@ -207,9 +207,25 @@ const Conversations: React.FC = () => {
                 })
                 .subscribe();
 
-            return () => { supabase.removeChannel(channel); };
+            // Polling fallback (for deployed mode where direct PG inserts don't trigger Realtime)
+            const msgPoll = setInterval(() => {
+                loadMessages(selectedLead.id);
+            }, 5000);
+
+            return () => {
+                supabase.removeChannel(channel);
+                clearInterval(msgPoll);
+            };
         }
-    }, [selectedLead?.id]); // Only re-subscribe if the ID actually changes
+    }, [selectedLead?.id]);
+
+    // Periodic lead list refresh
+    useEffect(() => {
+        const leadPoll = setInterval(() => {
+            loadLeads();
+        }, 10000);
+        return () => clearInterval(leadPoll);
+    }, []);
 
     const loadMessages = async (leadId: string) => {
         if (!leadId) return;
@@ -217,7 +233,7 @@ const Conversations: React.FC = () => {
         setMessages(msgs);
     };
 
-    // Removed individual polling, using Realtime instead
+    // Polling active for deployed mode
 
     useEffect(() => {
         chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });

@@ -887,7 +887,7 @@ class SupabaseDatabase {
       media_filename: msg.mediaFilename
     });
 
-    // Send via Evolution API
+    // Send via WhatsApp Baileys
     if (!error && msg.sender === 'agent' && lead?.phone) {
       try {
         const mediaType = msg.mediaType || 'text';
@@ -902,7 +902,7 @@ class SupabaseDatabase {
           await whatsappService.sendMedia(user.organizationId, lead.phone, msg.mediaUrl || '', mediaType as any, msg.content);
         }
       } catch (e) {
-        console.error('[Evolution] Send failed:', e);
+        console.error('[WhatsApp] Send failed:', e);
       }
     }
 
