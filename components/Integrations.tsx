@@ -185,16 +185,31 @@ const Integrations: React.FC = () => {
           const response = await whatsappService.getQrCode(currentUser.organizationId);
           if (typeof response === 'string' && response.length > 50) {
             setQrCode(response);
-          } else if (typeof response === 'object' && (response as any).raw?.message === 'CONNECTED') {
-            // Already connected!
-            setShowQrModal(false);
-            addNotification({ title: 'Sincronizado', message: 'WhatsApp ya estaba conectado.', type: 'success' });
-            loadWaConfig(currentUser.organizationId);
+            setDebugLog(prev => [...prev, "[OK] QR recibido. Escanea con WhatsApp."]);
+          } else if (typeof response === 'object') {
+            const raw = (response as any).raw;
+            if (raw?.message === 'CONNECTED' || raw?.state === 'open') {
+              setShowQrModal(false);
+              addNotification({ title: '✅ Conectado', message: 'WhatsApp ya está vinculado.', type: 'success' });
+              try {
+                await supabase.from('whatsapp_config')
+                  .update({ status: 'connected', updated_at: new Date().toISOString() })
+                  .eq('organization_id', currentUser.organizationId);
+              } catch(e) {}
+              loadWaConfig(currentUser.organizationId);
+            } else if (raw?.state === 'connecting') {
+              setDebugLog(prev => {
+                if (prev[prev.length-1]?.includes('Servidor iniciando')) return prev;
+                return [...prev, "[Info] Servidor iniciando conexión..."];
+              });
+            }
           }
-        } catch (e) { }
+        } catch (e: any) {
+          setDebugLog(prev => [...prev, `[Error] ${e.message}`]);
+        }
       };
       poll();
-      interval = setInterval(poll, 15000);
+      interval = setInterval(poll, 3000);
     }
     return () => clearInterval(interval);
   }, [showQrModal, currentUser?.organizationId]);
@@ -203,7 +218,15 @@ const Integrations: React.FC = () => {
     if (!currentUser?.organizationId) return;
     setQrCode(null);
     setShowQrModal(true);
-    setDebugLog(["[Info] Obteniendo código QR de conexión...", "[Info] Esto puede tardar 10-15 segundos si el servidor está reiniciando."]);
+    setDebugLog(["[Info] Forzando reinicio del servidor WhatsApp..."]);
+    
+    try {
+      // Force delete + recreate to get fresh QR
+      await whatsappService.deleteInstance(currentUser.organizationId);
+      setDebugLog(prev => [...prev, "[Info] Servidor limpiado. Generando nuevo QR (espera 5-10s)..."]);
+    } catch (e) {
+      setDebugLog(prev => [...prev, "[Info] Solicitando QR al servidor..."]);
+    }
   };
 
   const checkConnectionStatus = async () => {
