@@ -1,4 +1,4 @@
-import { evolutionService } from './evolutionService';
+import { whatsappService } from './whatsappService';
 import { supabase } from './supabaseClient';
 import {
   Property,
@@ -892,14 +892,14 @@ class SupabaseDatabase {
       try {
         const mediaType = msg.mediaType || 'text';
         if (mediaType === 'text') {
-          await evolutionService.sendText(user.organizationId, lead.phone, msg.content || '');
+          await whatsappService.sendText(user.organizationId, lead.phone, msg.content || '');
         } else if (mediaType === 'audio') {
-          await evolutionService.sendAudio(user.organizationId, lead.phone, msg.mediaUrl || '');
+          await whatsappService.sendAudio(user.organizationId, lead.phone, msg.mediaUrl || '');
         } else if (mediaType === 'document') {
-          await evolutionService.sendDocument(user.organizationId, lead.phone, msg.mediaUrl || '', msg.mediaFilename || 'Documento');
+          await whatsappService.sendDocument(user.organizationId, lead.phone, msg.mediaUrl || '', msg.mediaFilename || 'Documento');
         } else {
           // image or video
-          await evolutionService.sendMedia(user.organizationId, lead.phone, msg.mediaUrl || '', mediaType as any, msg.content);
+          await whatsappService.sendMedia(user.organizationId, lead.phone, msg.mediaUrl || '', mediaType as any, msg.content);
         }
       } catch (e) {
         console.error('[Evolution] Send failed:', e);

@@ -22,7 +22,7 @@ import {
   Gift
 } from 'lucide-react';
 import { useNotification } from './NotificationContext';
-import { evolutionService } from '../services/evolutionService';
+import { whatsappService } from '../services/whatsappService';
 import CustomModal from './CustomModal';
 
 interface IntegrationItem {
@@ -114,8 +114,8 @@ const Integrations: React.FC = () => {
   const [integrationList, setIntegrationList] = useState<IntegrationItem[]>([
     {
       id: 'whatsapp_master',
-      name: 'WhatsApp Directo (QR)',
-      description: 'Vinculación directa mediante código QR para una conexión estable y rápida en tiempo real.',
+      name: 'WhatsApp Baileys (QR)',
+      description: 'Vinculación directa mediante código QR utilizando el motor Baileys para una conexión ultra-estable.',
       icon: Smartphone,
       color: 'text-primary',
       bgColor: 'bg-primary/10',
@@ -182,7 +182,7 @@ const Integrations: React.FC = () => {
     if (showQrModal && currentUser?.organizationId) {
       const poll = async () => {
         try {
-          const response = await evolutionService.getQrCode(currentUser.organizationId);
+          const response = await whatsappService.getQrCode(currentUser.organizationId);
           if (typeof response === 'string' && response.length > 50) {
             setQrCode(response);
           } else if (typeof response === 'object' && (response as any).raw?.message === 'CONNECTED') {
@@ -209,17 +209,17 @@ const Integrations: React.FC = () => {
   const checkConnectionStatus = async () => {
     if (!currentUser?.organizationId) return;
     try {
-      const isConnected = await evolutionService.checkConnection(currentUser.organizationId);
+      const isConnected = await whatsappService.checkConnection(currentUser.organizationId);
       if (isConnected) {
         try {
           await supabase
             .from('whatsapp_config')
             .update({ status: 'connected', updated_at: new Date().toISOString() })
             .eq('organization_id', currentUser.organizationId);
-        } catch (e) { } // Ignore local DB errors if placeholder
+        } catch (e) { }
 
         setWaConfig(prev => prev ? { ...prev, status: 'connected' } : null);
-        addNotification({ title: 'Conectado', message: 'WhatsApp está activo. OJO: Los mensajes solo cargarán conectando el .env real (VPS).', type: 'success' });
+        addNotification({ title: 'Conectado', message: 'WhatsApp está activo y sincronizado.', type: 'success' });
 
         try { loadWaConfig(currentUser.organizationId); } catch (e) { }
       } else {
@@ -242,7 +242,7 @@ const Integrations: React.FC = () => {
         setConfirmModal(prev => ({ ...prev, isOpen: false }));
         try {
           setDebugLog(prev => [...prev, "[Info] Iniciando Reset total del servidor..."]);
-          await evolutionService.deleteInstance(currentUser!.organizationId);
+          await whatsappService.deleteInstance(currentUser!.organizationId);
           setDebugLog(prev => [...prev, "[Info] Servidor limpiado. Esperando reinicio (10s)..."]);
           
           await supabase
@@ -257,8 +257,6 @@ const Integrations: React.FC = () => {
           setDebugLog(prev => [...prev, `[Error] No se pudo resetear: ${error.message}`]);
           addNotification({ title: 'Aviso', message: 'Estado local reseteado.', type: 'warning' });
           loadWaConfig(currentUser!.organizationId);
-        }
-      }
         }
       }
     });
@@ -308,9 +306,9 @@ const Integrations: React.FC = () => {
             <div className="bg-surface border border-border-color rounded-[1.5rem] p-3 space-y-3 shadow-sm relative overflow-hidden">
               <div className="flex justify-between items-center">
                 <span className="text-[10px] font-bold text-text-muted uppercase tracking-[0.15em] opacity-40">Estado de Conexión</span>
-                <span className={`${waConfig?.status === 'connected' ? 'text-green-500' : 'text-orange-500'} text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 bg-background/50 px-3 py-1 rounded-full border border-current/10`}>
+                <span className={`${waConfig?.status === 'connected' ? 'text-green-500 border-green-500/30' : 'text-orange-500 border-orange-500/30'} text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 bg-background/50 px-3 py-1 rounded-full border shadow-sm`}>
                   {waConfig?.status === 'connected' ? <CheckCircle2 size={12} /> : <AlertCircle size={12} />}
-                  {waConfig?.status === 'connected' ? 'CONECTADO' : 'SIN VINCULAR'}
+                  {waConfig?.status === 'connected' ? 'VINCULADO' : 'SIN VINCULAR'}
                 </span>
               </div>
 
@@ -341,13 +339,13 @@ const Integrations: React.FC = () => {
                 </div>
 
                 <div className="pt-1.5 flex flex-col gap-3">
-                  <div className="bg-input-bg border border-border-color rounded-xl px-3.5 py-3 text-xs font-bold text-text-muted shadow-inner flex items-center justify-between">
+                  <div className={`bg-input-bg border rounded-xl px-3.5 py-3 text-xs font-bold shadow-inner flex items-center justify-between ${waConfig?.status === 'connected' ? 'border-green-500/20' : 'border-border-color'}`}>
                     <div className="flex items-center gap-2">
                       <div className={`w-2 h-2 rounded-full ${waConfig?.status === 'connected' ? 'bg-green-500' : 'bg-orange-500'}`} />
-                      <span>{waConfig?.status === 'connected' ? 'Sesión vinculada' : 'Sesión pendiente'}</span>
+                      <span className={waConfig?.status === 'connected' ? 'text-green-500' : 'text-text-muted'}>{waConfig?.status === 'connected' ? 'Sesión activa' : 'Sesión pendiente'}</span>
                     </div>
                     {waConfig?.status === 'connected' && (
-                      <span className="text-[9px] bg-green-500/10 text-green-600 px-2 py-0.5 rounded-md border border-green-500/20">CONECTADO</span>
+                      <span className="text-[9px] bg-green-500/10 text-green-600 px-2 py-0.5 rounded-md border border-green-500/20 uppercase">Activo</span>
                     )}
                   </div>
 
@@ -450,7 +448,7 @@ const Integrations: React.FC = () => {
             <div className="absolute top-0 left-0 w-full h-1.5 bg-primary" />
 
             <h3 className="text-xl font-bold text-text-main mb-1 tracking-tight">Vincular WhatsApp</h3>
-            <p className="text-[10px] text-text-muted font-bold opacity-60 uppercase tracking-[0.2em] mb-6">Evolution API Instance</p>
+            <p className="text-[10px] text-text-muted font-bold opacity-60 uppercase tracking-[0.2em] mb-6">WhatsApp Baileys Engine</p>
 
             <div className="bg-white p-5 rounded-2xl inline-block shadow-inner mb-6 mx-auto border-4 border-border-color relative">
               {isGeneratingQr ? (
