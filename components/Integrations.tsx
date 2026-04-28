@@ -232,7 +232,17 @@ const Integrations: React.FC = () => {
             }
           }
         } catch (e: any) {
-          setDebugLog(prev => [...prev, `[Error] ${e.message}`]);
+          setDebugLog(prev => {
+            const newLogs = [...prev, `[Error] ${e.message}`];
+            if (waConfig?.qr_code && !prev.some(l => l.includes('Fallback'))) {
+              setQrCode(waConfig.qr_code);
+              newLogs.push("[Fallback] Mostrando QR de la base de datos.");
+            }
+            if (waConfig?.status === 'connected') {
+              setShowQrModal(false);
+            }
+            return newLogs;
+          });
         }
       };
       poll();
