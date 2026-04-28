@@ -131,7 +131,8 @@ class DbService {
 
     async createLead(name, phoneOrLid, orgId) {
         if (!this.isReady()) return { data: null };
-        const clean = phoneOrLid.replace(/\D/g, '');
+        if (!phoneOrLid || phoneOrLid === 'status' || phoneOrLid.includes('status@broadcast')) return { data: null };
+        const clean = phoneOrLid.replace('WA-', '').replace(/\D/g, '');
         const isLid = clean.length >= 14;
         const displayPhone = isLid ? clean : clean; // always use the number we have
 
@@ -338,7 +339,7 @@ async function initWhatsApp(orgId) {
 
                 const from = msg.key.remoteJid;
                 const normalized = jidNormalizedUser(from);
-                let phone = normalized.split('@')[0];
+                let phone = normalized.split('@')[0].replace('WA-', '');
 
                 // --- LID to Phone Resolution ---
                 if (from.endsWith('@lid')) {
@@ -390,37 +391,61 @@ async function initWhatsApp(orgId) {
         console.log('[Sync] History sync complete.');
     });
 
-    sock.ev.on('contacts.upsert', (contacts) => {
+    sock.ev.on('contacts.upsert', async (contacts) => {
         console.log(`[Contacts] Received ${contacts.length} contacts`);
         for (const contact of contacts) {
-            // Log full contact for debugging
-            console.log(`[Contact] id=${contact.id} lid=${contact.lid} name=${contact.notify || contact.name || '?'}`);
-            
-            // Case 1: Contact has phone JID + lid property
+            let resolvedLid = null;
+            let resolvedPhone = null;
+
             if (contact.id && contact.id.endsWith('@s.whatsapp.net') && contact.lid) {
                 const phone = contact.id.split('@')[0];
-                lidToPhoneMap.set(contact.lid, phone);
-                console.log(`[Map] LID ${contact.lid} -> Phone ${phone}`);
+                resolvedLid = contact.lid;
+                resolvedPhone = phone;
+            } else if (contact.id && contact.id.endsWith('@lid') && contact.number) {
+                resolvedLid = contact.id;
+                resolvedPhone = contact.number;
             }
-            
-            // Case 2: Contact has LID JID + we can find phone in other properties
-            if (contact.id && contact.id.endsWith('@lid')) {
-                // Check if there's a phone number in any property
-                if (contact.number) {
-                    lidToPhoneMap.set(contact.id, contact.number);
-                    console.log(`[Map] LID ${contact.id} -> Phone ${contact.number} (from number prop)`);
+
+            if (resolvedLid && resolvedPhone) {
+                lidToPhoneMap.set(resolvedLid, resolvedPhone);
+                console.log(`[Map] LID ${resolvedLid} -> Phone ${resolvedPhone}`);
+
+                // Update database lead if it exists
+                try {
+                    const cleanLid = resolvedLid.split('@')[0].replace(/\D/g, '');
+                    const { data: lead } = await db.findLeadByPhone(cleanLid, orgId);
+                    if (lead && (lead.phone === cleanLid || lead.phone.includes('SOLICITAR') || lead.phone.startsWith('WA-') || lead.phone.length > 13)) {
+                        await db.updateLeadPhone(lead.id, resolvedPhone, cleanLid);
+                        console.log(`[DB Update] Updated lead ${lead.id} with resolved phone: ${resolvedPhone}`);
+                    }
+                } catch (e) {
+                    console.error('[DB Update] Error updating resolved phone in upsert:', e.message);
                 }
             }
         }
         console.log(`[Map] Total LID mappings: ${lidToPhoneMap.size}`);
     });
 
-    sock.ev.on('contacts.update', (updates) => {
+    sock.ev.on('contacts.update', async (updates) => {
         for (const update of updates) {
             console.log(`[ContactUpdate] id=${update.id} keys=${Object.keys(update).join(',')}`);
             if (update.id && update.id.endsWith('@lid') && update.phoneNumber) {
-                lidToPhoneMap.set(update.id, update.phoneNumber);
-                console.log(`[Map] LID ${update.id} -> Phone ${update.phoneNumber}`);
+                const resolvedLid = update.id;
+                const resolvedPhone = update.phoneNumber.replace(/\D/g, '');
+                lidToPhoneMap.set(resolvedLid, resolvedPhone);
+                console.log(`[Map] LID ${resolvedLid} -> Phone ${resolvedPhone}`);
+
+                // Update database lead if it exists
+                try {
+                    const cleanLid = resolvedLid.split('@')[0].replace(/\D/g, '');
+                    const { data: lead } = await db.findLeadByPhone(cleanLid, orgId);
+                    if (lead && (lead.phone === cleanLid || lead.phone.includes('SOLICITAR') || lead.phone.startsWith('WA-') || lead.phone.length > 13)) {
+                        await db.updateLeadPhone(lead.id, resolvedPhone, cleanLid);
+                        console.log(`[DB Update] Updated lead ${lead.id} with resolved phone: ${resolvedPhone}`);
+                    }
+                } catch (e) {
+                    console.error('[DB Update] Error updating resolved phone in update:', e.message);
+                }
             }
         }
     });
@@ -431,23 +456,43 @@ async function initWhatsApp(orgId) {
         if (m.type !== 'notify') return;
         for (const msg of m.messages) {
             try {
-                if (!msg.message) continue; // protocol messages have no .message
+                if (!msg.message) continue;
                 const from = msg.key.remoteJid;
                 if (!from || from === 'status@broadcast' || from.endsWith('@g.us') || from.endsWith('@newsletter')) {
                     continue;
                 }
 
-                const normalized = jidNormalizedUser(from);
-                let phone = normalized.split('@')[0];
+                let phone = '';
+                const isLid = from.endsWith('@lid');
 
-                // 1. Try to resolve LID from memory map
-                if (from.endsWith('@lid') && lidToPhoneMap.has(from)) {
-                    phone = lidToPhoneMap.get(from);
-                    console.log(`[Msg] LID resolved: ${phone}`);
+                if (isLid) {
+                    // Try LID map first
+                    if (lidToPhoneMap.has(from)) {
+                        phone = lidToPhoneMap.get(from);
+                        console.log(`[Msg] LID resolved from map: ${phone}`);
+                    } else {
+                        // Try to get phone from store contacts
+                        const storeContacts = sock.store?.contacts || {};
+                        for (const [jid, contact] of Object.entries(storeContacts)) {
+                            if ((contact as any).lid === from || (contact as any).lidJid === from) {
+                                phone = jid.split('@')[0];
+                                lidToPhoneMap.set(from, phone);
+                                console.log(`[Msg] LID resolved from store: ${phone}`);
+                                break;
+                            }
+                        }
+                        // If still no phone, use the LID number part but mark as SOLICITAR NUMERO
+                        if (!phone) {
+                            const lidNum = from.split('@')[0].replace(/\D/g, '');
+                            phone = `SOLICITAR NUMERO - LID:${lidNum}`;
+                            console.log(`[Msg] LID unresolved, using placeholder: ${phone}`);
+                        }
+                    }
+                } else {
+                    const normalized = jidNormalizedUser(from);
+                    phone = normalized.split('@')[0].replace('WA-', '').replace(/\D/g, '');
                 }
 
-                // Sanitize phone
-                phone = phone.replace(/\D/g, '');
                 if (!phone) continue;
 
                 const isMe = msg.key.fromMe;
