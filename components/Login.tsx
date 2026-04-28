@@ -272,6 +272,16 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
           </div>
         )}
 
+        {import.meta.env.VITE_LOCAL_MODE === 'true' && (
+          <div className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 p-3 rounded-xl text-sm flex flex-col gap-1 animate-in slide-in-from-top-2 mb-2">
+            <div className="flex items-center gap-2 font-bold">
+              <CheckCircle2 size={16} />
+              <span>Modo Local Activo</span>
+            </div>
+            <p className="text-[10px] opacity-80">La base de datos está desconectada. Todo se guardará en tu navegador.</p>
+          </div>
+        )}
+
         <div>
           <label className="block text-sm text-text-muted mb-1.5 font-medium">Usuario o Correo</label>
           <div className="relative">

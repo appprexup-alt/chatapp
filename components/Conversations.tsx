@@ -20,21 +20,22 @@ import QuickReplyManager from './QuickReplyManager';
 const Conversations: React.FC = () => {
     const isLID = (phone: string) => {
         if (!phone) return false;
+        if (phone === 'status' || phone.includes('status@broadcast')) return false;
         if (phone.includes('SOLICITAR NUMERO')) return true;
-        const clean = phone.replace(/\D/g, '');
+        const clean = phone.replace('WA-', '').replace(/\D/g, '');
         return clean.length >= 14 || /[a-zA-Z]/.test(phone) || phone.includes(':');
     };
 
     const formatPhone = (phone: string) => {
-        if (!phone) return '';
+        if (!phone) return 'Sin número';
+        if (phone.includes('status') || phone.includes('status@broadcast')) return 'WhatsApp Status';
         if (phone.includes('SOLICITAR NUMERO')) {
             return `⚠️ Sin número (Clic para añadir)`;
         }
-        if (isLID(phone)) {
-            return `📱 WA-${phone.slice(0, 6)}...`;
-        }
-        const clean = phone.replace(/\D/g, '');
+        if (phone.includes('status')) return 'WhatsApp Status';
+        const clean = phone.replace('WA-', '').replace(/\D/g, '');
         if (!clean) return phone;
+        if (clean.length > 15) return `ID: ${clean.substring(0, 10)}...`;
         return `+${clean}`;
     };
 

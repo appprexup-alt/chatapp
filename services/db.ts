@@ -85,8 +85,11 @@ class SupabaseDatabase {
     }
   }
 
-  // Generic executor to try Proxy then Supabase
+  // Generic executor to try Local, Proxy then Supabase
   async exec(table: string, op: 'select' | 'insert' | 'update' | 'delete', payload?: any, filters?: any): Promise<{ data: any, error: any }> {
+    if (import.meta.env.VITE_LOCAL_MODE === 'true') {
+      return this.execLocal(table, op, payload, filters);
+    }
     const user = getCurrentUser();
     const orgId = user?.organizationId;
 
@@ -129,8 +132,82 @@ class SupabaseDatabase {
     return await query;
   }
 
+  private execLocal(table: string, op: 'select' | 'insert' | 'update' | 'delete', payload?: any, filters?: any): any {
+    const dbStr = localStorage.getItem('inmocrm_local_db') || '{}';
+    const db = JSON.parse(dbStr);
+    if (!db[table]) db[table] = [];
+
+    let result: any = null;
+    let error: any = null;
+
+    try {
+      if (op === 'select') {
+        let data = [...db[table]];
+        if (filters) {
+          data = data.filter((item: any) =>
+            Object.keys(filters).every(k => item[k] === filters[k])
+          );
+        }
+        if (typeof payload === 'string') {
+          data = data.find((item: any) => item.id === payload) || null;
+        }
+        result = data;
+      } else if (op === 'insert') {
+        const newItem = {
+          id: Math.random().toString(36).substr(2, 9),
+          created_at: new Date().toISOString(),
+          organization_id: 'local_org',
+          ...payload
+        };
+        db[table].push(newItem);
+        result = newItem;
+      } else if (op === 'update') {
+        const id = payload?.id || (typeof payload === 'string' ? payload : null);
+        const index = db[table].findIndex((item: any) => item.id === id);
+        if (index !== -1) {
+          db[table][index] = { ...db[table][index], ...payload, updated_at: new Date().toISOString() };
+          result = db[table][index];
+        } else {
+          error = new Error('Not found');
+        }
+      } else if (op === 'delete') {
+        const id = typeof payload === 'string' ? payload : payload?.id;
+        db[table] = db[table].filter((item: any) => item.id !== id);
+        result = { success: true };
+      }
+
+      localStorage.setItem('inmocrm_local_db', JSON.stringify(db));
+    } catch (e: any) {
+      error = e;
+    }
+
+    return { data: result, error };
+  }
+
   // --- AUTH ---
   async login(emailOrUsername: string, password?: string): Promise<User | null> {
+    if (import.meta.env.VITE_LOCAL_MODE === 'true') {
+      const mockUser: User = {
+        id: 'local_admin',
+        organizationId: 'local_org',
+        name: 'Administrador Local',
+        email: 'admin@local.com',
+        username: 'admin',
+        role: 'SuperAdmin',
+        status: 'active'
+      };
+      localStorage.setItem('inmocrm_user', JSON.stringify(mockUser));
+      
+      // Initialize some local data if empty
+      const dbStr = localStorage.getItem('inmocrm_local_db') || '{}';
+      const db = JSON.parse(dbStr);
+      if (!db.organizations) {
+        db.organizations = [{ id: 'local_org', name: 'Organización Local', plan: 'pro', status: 'active' }];
+        localStorage.setItem('inmocrm_local_db', JSON.stringify(db));
+      }
+      
+      return mockUser;
+    }
     const cleanLogin = emailOrUsername.trim();
 
     // Try local proxy authentication first to bypass Supabase 401 issues
