@@ -474,7 +474,7 @@ async function initWhatsApp(orgId) {
                         // Try to get phone from store contacts
                         const storeContacts = sock.store?.contacts || {};
                         for (const [jid, contact] of Object.entries(storeContacts)) {
-                            if ((contact as any).lid === from || (contact as any).lidJid === from) {
+                            if (contact && (contact.lid === from || contact.lidJid === from)) {
                                 phone = jid.split('@')[0];
                                 lidToPhoneMap.set(from, phone);
                                 console.log(`[Msg] LID resolved from store: ${phone}`);
