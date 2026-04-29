@@ -322,21 +322,36 @@ async function initWhatsApp(orgId) {
     const authPath = path.join(__dirname, 'auth', orgId);
     if (!fs.existsSync(authPath)) fs.mkdirSync(authPath, { recursive: true });
 
-    const { state, saveCreds } = await useMultiFileAuthState(authPath);
-    const { version } = await fetchLatestBaileysVersion();
+    let state, saveCreds;
+    try {
+        const authState = await useMultiFileAuthState(authPath);
+        state = authState.state;
+        saveCreds = authState.saveCreds;
+    } catch (err) {
+        console.error(`[Baileys] Fatal error reading auth state for ${orgId}:`, err.message);
+        console.log(`[Baileys] Clearing corrupted auth directory: ${authPath}`);
+        fs.rmSync(authPath, { recursive: true, force: true });
+        fs.mkdirSync(authPath, { recursive: true });
+        const authState = await useMultiFileAuthState(authPath);
+        state = authState.state;
+        saveCreds = authState.saveCreds;
+    }
 
-    const sock = makeWASocket({
-        version,
-        logger,
-        auth: state,
-        printQRInTerminal: true,
-        browser: Browsers.ubuntu('Chrome'),
-        syncFullHistory: false
-    });
+    try {
+        const { version } = await fetchLatestBaileysVersion();
 
-    sessions.set(orgId, sock);
+        const sock = makeWASocket({
+            version,
+            logger,
+            auth: state,
+            printQRInTerminal: true,
+            browser: Browsers.ubuntu('Chrome'),
+            syncFullHistory: false
+        });
 
-    sock.ev.on('connection.update', async (update) => {
+        sessions.set(orgId, sock);
+
+        sock.ev.on('connection.update', async (update) => {
         const { connection, lastDisconnect, qr } = update;
         if (qr) {
             console.log(`[QR] Org ${orgId} generated new code`);
@@ -591,6 +606,9 @@ async function initWhatsApp(orgId) {
         }
     });
 
+    } catch (e) {
+        console.error('[Baileys] Socket error during initWhatsApp:', e.message);
+    }
     return sock;
 }
 
