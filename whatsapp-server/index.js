@@ -373,67 +373,7 @@ async function initWhatsApp(orgId) {
     });
 
     sock.ev.on('messaging-history.set', async ({ chats, contacts, messages, isLatest }) => {
-        console.log(`[Sync] Received messaging history: ${chats.length} chats, ${messages.length} messages`);
-        for (const msg of messages) {
-            try {
-                if (!msg.message || 
-                    msg.key.remoteJid === 'status@broadcast' || 
-                    msg.key.remoteJid.endsWith('@g.us') || 
-                    msg.key.remoteJid.endsWith('@newsletter')
-                ) continue;
-
-                const from = msg.key.remoteJid;
-                const normalized = jidNormalizedUser(from);
-                let phone = normalized.split('@')[0].replace('WA-', '');
-
-                // --- LID to Phone Resolution ---
-                if (from.endsWith('@lid')) {
-                    // Try to get the real phone number from the message itself if available
-                    // or from our internal map built during contact sync
-                    const contact = lidToPhoneMap.get(from);
-                    if (contact) {
-                        phone = contact;
-                    } else {
-                        // If not found, we keep the LID for now but it will be updated
-                        // as soon as the contact sync completes
-                    }
-                }
-                
-                const finalPhone = phone.replace(/\D/g, '');
-                if (!finalPhone) continue;
-
-                const isMe = msg.key.fromMe;
-
-                let content = msg.message.conversation || msg.message.extendedTextMessage?.text || '';
-                let mediaType = 'text';
-
-                if (msg.message.imageMessage) mediaType = 'image';
-                else if (msg.message.videoMessage) mediaType = 'video';
-                else if (msg.message.audioMessage) mediaType = 'audio';
-                else if (msg.message.documentMessage) mediaType = 'document';
-
-                const { data: lead } = await db.findLeadByPhone(phone, orgId);
-                let leadId = lead?.id;
-                if (!lead && !isMe) {
-                    const pushName = msg.pushName || (contacts || []).find(c => c.id === from)?.name || phone;
-                    const { data: newLead } = await db.createLead(pushName, phone, orgId);
-                    leadId = newLead?.id;
-                }
-
-                if (leadId) {
-                    await db.saveMessage({
-                        organization_id: orgId,
-                        lead_id: leadId,
-                        content: content || `[${mediaType}]`,
-                        sender: isMe ? 'agent' : 'client',
-                        media_type: mediaType,
-                        payload: msg.message,
-                        created_at: new Date(msg.messageTimestamp * 1000).toISOString()
-                    });
-                }
-            } catch (err) { }
-        }
-        console.log('[Sync] History sync complete.');
+        console.log(`[Sync] Historical messaging sync skipped to prevent loading old leads (Requested by User).`);
     });
 
     sock.ev.on('contacts.upsert', async (contacts) => {
