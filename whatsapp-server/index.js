@@ -488,6 +488,7 @@ async function initWhatsApp(orgId) {
                         console.log(`[DB Update] Updated lead ${lead.id} with resolved phone: ${resolvedPhone}`);
                     }
                 } catch (e) { }
+                }
             }
         }
     });
