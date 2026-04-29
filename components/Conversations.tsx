@@ -35,7 +35,6 @@ const Conversations: React.FC = () => {
         if (phone.includes('status')) return 'WhatsApp Status';
         const clean = phone.replace('WA-', '').replace(/\D/g, '');
         if (!clean) return phone;
-        if (clean.length > 15) return `ID: ${clean.substring(0, 10)}...`;
         return `+${clean}`;
     };
 
