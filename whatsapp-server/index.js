@@ -98,28 +98,41 @@ class DbService {
 
     isReady() { return !!(this.pool || this.supabase); }
 
-    async findLeadByPhone(phoneOrLid, orgId) {
+    async findLeadByPhone(phone, orgId) {
         if (!this.isReady()) return { data: null };
-        const clean = phoneOrLid.replace(/\D/g, '');
-        if (!clean) return { data: null };
+        const clean = phone.replace(/\D/g, '');
+
+        let actualOrgId = orgId;
+        if (orgId === '00000000-0000-0000-0000-000000000000') {
+            try {
+                if (this.usePostgres) {
+                    const { rows } = await this.pool.query(`SELECT id FROM ${DB_SCHEMA}.organizations LIMIT 1`);
+                    if (rows.length > 0) actualOrgId = rows[0].id;
+                } else {
+                    const { data } = await this.supabase.from('organizations').select('id').limit(1).maybeSingle();
+                    if (data) actualOrgId = data.id;
+                }
+            } catch (e) { }
+        }
+
         if (this.usePostgres) {
             try {
                 // Try with whatsapp_id first
                 const { rows } = await this.pool.query(
                     `SELECT * FROM ${DB_SCHEMA}.leads WHERE organization_id = $1 AND (phone = $2 OR whatsapp_id = $2 OR phone LIKE $3 OR $2 LIKE '%' || phone) LIMIT 1`,
-                    [orgId, clean, `%${clean}`]
+                    [actualOrgId, clean, `%${clean}`]
                 );
                 return { data: rows[0] };
             } catch (e) {
                 // whatsapp_id column might not exist, fallback
                 const { rows } = await this.pool.query(
                     `SELECT * FROM ${DB_SCHEMA}.leads WHERE organization_id = $1 AND (phone = $2 OR phone LIKE $3 OR $2 LIKE '%' || phone) LIMIT 1`,
-                    [orgId, clean, `%${clean}`]
+                    [actualOrgId, clean, `%${clean}`]
                 );
                 return { data: rows[0] };
             }
         } else {
-            const { data } = await this.supabase.from('leads').select('*').eq('organization_id', orgId);
+            const { data } = await this.supabase.from('leads').select('*').eq('organization_id', actualOrgId);
             const lead = data?.find(l => {
                 if (l.whatsapp_id === clean) return true;
                 const lPhone = (l.phone || '').replace(/\D/g, '');
@@ -127,14 +140,25 @@ class DbService {
             });
             return { data: lead };
         }
-    }
-
-    async createLead(name, phoneOrLid, orgId) {
+    }    async createLead(name, phoneOrLid, orgId) {
         if (!this.isReady()) return { data: null };
         if (!phoneOrLid || phoneOrLid === 'status' || phoneOrLid.includes('status@broadcast')) return { data: null };
         const clean = phoneOrLid.replace('WA-', '').replace(/\D/g, '');
         const isLid = clean.length >= 14;
         const displayPhone = isLid ? clean : clean; // always use the number we have
+
+        let actualOrgId = orgId;
+        if (orgId === '00000000-0000-0000-0000-000000000000') {
+            try {
+                if (this.usePostgres) {
+                    const { rows } = await this.pool.query(`SELECT id FROM ${DB_SCHEMA}.organizations LIMIT 1`);
+                    if (rows.length > 0) actualOrgId = rows[0].id;
+                } else {
+                    const { data } = await this.supabase.from('organizations').select('id').limit(1).maybeSingle();
+                    if (data) actualOrgId = data.id;
+                }
+            } catch (e) { }
+        }
 
         let firstStageId = null;
         try {
@@ -152,20 +176,20 @@ class DbService {
                 // Try with whatsapp_id column
                 const { rows } = await this.pool.query(
                     `INSERT INTO ${DB_SCHEMA}.leads (organization_id, name, phone, whatsapp_id, status, source, pipeline_stage_id) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
-                    [orgId, name || 'Nuevo Contacto', displayPhone, isLid ? clean : null, 'Nuevo', 'WhatsApp', firstStageId]
+                    [actualOrgId, name || 'Nuevo Contacto', displayPhone, isLid ? clean : null, 'Nuevo', 'WhatsApp', firstStageId]
                 );
                 return { data: rows[0] };
             } catch (e) {
                 // Fallback without whatsapp_id
                 const { rows } = await this.pool.query(
                     `INSERT INTO ${DB_SCHEMA}.leads (organization_id, name, phone, status, source, pipeline_stage_id) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-                    [orgId, name || 'Nuevo Contacto', displayPhone, 'Nuevo', 'WhatsApp', firstStageId]
+                    [actualOrgId, name || 'Nuevo Contacto', displayPhone, 'Nuevo', 'WhatsApp', firstStageId]
                 );
                 return { data: rows[0] };
             }
         } else {
             const leadData = {
-                organization_id: orgId,
+                organization_id: actualOrgId,
                 name: name || 'Nuevo Contacto',
                 phone: displayPhone,
                 status: 'Nuevo',
@@ -174,7 +198,7 @@ class DbService {
             };
             return await this.supabase.from('leads').insert([leadData]).select().single();
         }
-    }
+    }   }
 
     async saveMessage(msgData) {
         if (!this.isReady()) return;
@@ -453,7 +477,7 @@ async function initWhatsApp(orgId) {
     sock.ev.on('creds.update', saveCreds);
 
     sock.ev.on('messages.upsert', async (m) => {
-        if (m.type !== 'notify') return;
+        console.log(`[Msg] Received messages upsert event of type: ${m.type}`);
         for (const msg of m.messages) {
             try {
                 if (!msg.message) continue;
