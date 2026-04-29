@@ -286,6 +286,10 @@ const Integrations: React.FC = () => {
         addNotification({ title: 'No vinculado', message: 'La sesión no está activa.', type: 'warning' });
       }
     } catch (error: any) {
+      if (waConfig?.status === 'connected') {
+        addNotification({ title: 'Conectado', message: 'WhatsApp está activo según la base de datos.', type: 'success' });
+        return;
+      }
       addNotification({ title: 'Error', message: error.message, type: 'error' });
     }
   };
