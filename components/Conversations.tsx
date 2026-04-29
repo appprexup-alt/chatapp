@@ -737,7 +737,7 @@ const Conversations: React.FC = () => {
                                     <div className="flex-1 min-w-0 py-0.5">
                                         <div className="flex justify-between items-center mb-0.5">
                                             <h4 className={`font-bold text-[12px] md:text-[13px] truncate pr-2 tracking-tight transition-colors ${isSelected ? 'text-zinc-200' : 'text-zinc-300/80 group-hover:text-zinc-200'}`}>
-                                                {lead.name}
+                                                {(lead.name && lead.name.length > 20 && !lead.name.includes(' ')) ? formatPhone(lead.phone) : lead.name}
                                             </h4>
                                             <span className="text-[9px] md:text-[10px] font-bold text-text-muted opacity-40">
                                                 {lead.lastContact ? format(new Date(lead.lastContact), 'HH:mm') : ''}
@@ -785,7 +785,9 @@ const Conversations: React.FC = () => {
                                 <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-surface bg-green-500 shadow-sm" />
                             </div>
                             <div>
-                                <h3 className="text-xs font-bold text-zinc-300 tracking-tight leading-tight">{selectedLead.name}</h3>
+                                <h3 className="text-xs font-bold text-zinc-300 tracking-tight leading-tight">
+                                    {(selectedLead.name && selectedLead.name.length > 20 && !selectedLead.name.includes(' ')) ? formatPhone(selectedLead.phone) : selectedLead.name}
+                                </h3>
                                 {isEditingPhone ? (
                                     <div className="flex items-center gap-1 mt-0.5">
                                         <span className="text-[10px] text-zinc-400">+</span>
