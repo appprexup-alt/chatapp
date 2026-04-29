@@ -433,13 +433,19 @@ async function initWhatsApp(orgId) {
             let resolvedLid = null;
             let resolvedPhone = null;
 
-            if (contact.id && contact.id.endsWith('@s.whatsapp.net') && contact.lid) {
+            if (contact.id && contact.id.endsWith('@s.whatsapp.net')) {
                 const phone = contact.id.split('@')[0];
-                resolvedLid = contact.lid;
-                resolvedPhone = phone;
-            } else if (contact.id && contact.id.endsWith('@lid') && contact.number) {
+                const lid = contact.lid || contact.lidJid;
+                if (lid) {
+                    resolvedLid = lid;
+                    resolvedPhone = phone;
+                }
+            } else if (contact.id && contact.id.endsWith('@lid')) {
                 resolvedLid = contact.id;
-                resolvedPhone = contact.number;
+                const rawNum = contact.phoneNumber || contact.number;
+                if (rawNum) {
+                    resolvedPhone = rawNum.replace(/\D/g, '');
+                }
             }
 
             if (resolvedLid && resolvedPhone) {
@@ -465,9 +471,11 @@ async function initWhatsApp(orgId) {
     sock.ev.on('contacts.update', async (updates) => {
         for (const update of updates) {
             console.log(`[ContactUpdate] id=${update.id} keys=${Object.keys(update).join(',')}`);
-            if (update.id && update.id.endsWith('@lid') && update.phoneNumber) {
-                const resolvedLid = update.id;
-                const resolvedPhone = update.phoneNumber.replace(/\D/g, '');
+            if (update.id && update.id.endsWith('@lid')) {
+                const rawNum = update.phoneNumber || update.number;
+                if (rawNum) {
+                    const resolvedLid = update.id;
+                    const resolvedPhone = rawNum.replace(/\D/g, '');
                 lidToPhoneMap.set(resolvedLid, resolvedPhone);
                 console.log(`[Map] LID ${resolvedLid} -> Phone ${resolvedPhone}`);
 
@@ -479,9 +487,7 @@ async function initWhatsApp(orgId) {
                         await db.updateLeadPhone(lead.id, resolvedPhone, cleanLid);
                         console.log(`[DB Update] Updated lead ${lead.id} with resolved phone: ${resolvedPhone}`);
                     }
-                } catch (e) {
-                    console.error('[DB Update] Error updating resolved phone in update:', e.message);
-                }
+                } catch (e) { }
             }
         }
     });
@@ -503,11 +509,19 @@ async function initWhatsApp(orgId) {
                 const isLid = from.endsWith('@lid');
 
                 if (isLid) {
-                    // Try LID map first
-                    if (lidToPhoneMap.has(from)) {
+                    // 1. Try to resolve from alternate PN fields (WhatsApp Phone Number fallback)
+                    const altJid = msg.key.remoteJidAlt || msg.key.participantAlt;
+                    if (altJid && !altJid.endsWith('@lid')) {
+                        phone = altJid.split('@')[0].replace(/\D/g, '');
+                        lidToPhoneMap.set(from, phone);
+                        console.log(`[Msg] LID resolved from Alt field: ${phone}`);
+                    }
+
+                    // 2. Try LID map next
+                    if (!phone && lidToPhoneMap.has(from)) {
                         phone = lidToPhoneMap.get(from);
                         console.log(`[Msg] LID resolved from map: ${phone}`);
-                    } else {
+                    } else if (!phone) {
                         // Try to get phone from store contacts
                         const storeContacts = sock.store?.contacts || {};
                         for (const [jid, contact] of Object.entries(storeContacts)) {
@@ -536,6 +550,19 @@ async function initWhatsApp(orgId) {
 
                 // 2. Find or create lead
                 let { data: lead } = await db.findLeadByPhone(phone, orgId);
+                
+                // If not found by real phone, but it was a LID, check if a lead was saved with the LID identifier
+                if (!lead && isLid) {
+                    const cleanLid = from.split('@')[0].replace(/\D/g, '');
+                    const { data: lidLead } = await db.findLeadByPhone(cleanLid, orgId);
+                    if (lidLead) {
+                        lead = lidLead;
+                        // Update the LID lead in the database with the real phone number
+                        await db.updateLeadPhone(lead.id, phone, cleanLid);
+                        lead.phone = phone;
+                        console.log(`[DB Update] Automatically updated LID lead ${lead.id} to real phone: ${phone}`);
+                    }
+                }
                 
                 if (!lead && !isMe) {
                     const { data: newLead } = await db.createLead(msg.pushName || phone, phone, orgId);
