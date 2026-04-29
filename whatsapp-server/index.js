@@ -140,7 +140,9 @@ class DbService {
             });
             return { data: lead };
         }
-    }    async createLead(name, phoneOrLid, orgId) {
+    }
+
+    async createLead(name, phoneOrLid, orgId) {
         if (!this.isReady()) return { data: null };
         if (!phoneOrLid || phoneOrLid === 'status' || phoneOrLid.includes('status@broadcast')) return { data: null };
         const clean = phoneOrLid.replace('WA-', '').replace(/\D/g, '');
@@ -198,7 +200,7 @@ class DbService {
             };
             return await this.supabase.from('leads').insert([leadData]).select().single();
         }
-    }   }
+    }
 
     async saveMessage(msgData) {
         if (!this.isReady()) return;
