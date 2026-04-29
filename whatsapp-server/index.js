@@ -103,17 +103,15 @@ class DbService {
         const clean = phone.replace(/\D/g, '');
 
         let actualOrgId = orgId;
-        if (orgId === '00000000-0000-0000-0000-000000000000') {
-            try {
-                if (this.usePostgres) {
-                    const { rows } = await this.pool.query(`SELECT id FROM ${DB_SCHEMA}.organizations LIMIT 1`);
-                    if (rows.length > 0) actualOrgId = rows[0].id;
-                } else {
-                    const { data } = await this.supabase.from('organizations').select('id').limit(1).maybeSingle();
-                    if (data) actualOrgId = data.id;
-                }
-            } catch (e) { }
-        }
+        try {
+            if (this.usePostgres) {
+                const { rows } = await this.pool.query(`SELECT id FROM ${DB_SCHEMA}.organizations LIMIT 1`);
+                if (rows.length > 0) actualOrgId = rows[0].id;
+            } else {
+                const { data } = await this.supabase.from('organizations').select('id').limit(1).maybeSingle();
+                if (data) actualOrgId = data.id;
+            }
+        } catch (e) { }
 
         if (this.usePostgres) {
             try {
@@ -150,17 +148,15 @@ class DbService {
         const displayPhone = isLid ? clean : clean; // always use the number we have
 
         let actualOrgId = orgId;
-        if (orgId === '00000000-0000-0000-0000-000000000000') {
-            try {
-                if (this.usePostgres) {
-                    const { rows } = await this.pool.query(`SELECT id FROM ${DB_SCHEMA}.organizations LIMIT 1`);
-                    if (rows.length > 0) actualOrgId = rows[0].id;
-                } else {
-                    const { data } = await this.supabase.from('organizations').select('id').limit(1).maybeSingle();
-                    if (data) actualOrgId = data.id;
-                }
-            } catch (e) { }
-        }
+        try {
+            if (this.usePostgres) {
+                const { rows } = await this.pool.query(`SELECT id FROM ${DB_SCHEMA}.organizations LIMIT 1`);
+                if (rows.length > 0) actualOrgId = rows[0].id;
+            } else {
+                const { data } = await this.supabase.from('organizations').select('id').limit(1).maybeSingle();
+                if (data) actualOrgId = data.id;
+            }
+        } catch (e) { }
 
         let firstStageId = null;
         try {
