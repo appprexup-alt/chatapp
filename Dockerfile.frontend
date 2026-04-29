@@ -11,8 +11,7 @@ ENV VITE_SUPABASE_URL=$VITE_SUPABASE_URL
 ENV VITE_SUPABASE_ANON_KEY=$VITE_SUPABASE_ANON_KEY
 ENV VITE_API_URL=$VITE_API_URL
 
-# Ensure we have a clean environment and basic tools
-RUN apt-get update && apt-get install -y python3 make g++ && rm -rf /var/lib/apt/lists/*
+# No extra build tools required for pure React frontend
 
 COPY package*.json ./
 # Install with explicit path and legacy-peer-deps
