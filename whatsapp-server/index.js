@@ -219,27 +219,36 @@ class DbService {
 
     async updateWhatsappStatus(orgId, status, extra = {}) {
         if (!this.isReady()) return;
-        console.log(`[DB] Upserting whatsapp_config: orgId=${orgId}, status=${status}`);
+        let actualOrgId = orgId;
         try {
             if (this.usePostgres) {
-                // UPSERT - insert if not exists, update if exists
+                const { rows } = await this.pool.query(`SELECT id FROM ${DB_SCHEMA}.organizations LIMIT 1`);
+                if (rows.length > 0) actualOrgId = rows[0].id;
+            } else {
+                const { data } = await this.supabase.from('organizations').select('id').limit(1).maybeSingle();
+                if (data) actualOrgId = data.id;
+            }
+        } catch (e) { }
+
+        console.log(`[DB] Upserting whatsapp_config: orgId=${actualOrgId}, status=${status}`);
+        try {
+            if (this.usePostgres) {
                 await this.pool.query(
                     `INSERT INTO ${DB_SCHEMA}.whatsapp_config (organization_id, status, updated_at)
                      VALUES ($1, $2, NOW())
                      ON CONFLICT (organization_id) DO UPDATE SET status = $2, updated_at = NOW()`,
-                    [orgId, status]
+                    [actualOrgId, status]
                 );
-                // Try updating extra columns individually (they might not exist)
                 if (extra.qr_code !== undefined) {
-                    try { await this.pool.query(`UPDATE ${DB_SCHEMA}.whatsapp_config SET qr_code = $1 WHERE organization_id = $2`, [extra.qr_code, orgId]); } catch(e) {}
+                    try { await this.pool.query(`UPDATE ${DB_SCHEMA}.whatsapp_config SET qr_code = $1 WHERE organization_id = $2`, [extra.qr_code, actualOrgId]); } catch(e) {}
                 }
                 if (extra.phone_number !== undefined) {
-                    try { await this.pool.query(`UPDATE ${DB_SCHEMA}.whatsapp_config SET phone_number = $1 WHERE organization_id = $2`, [extra.phone_number, orgId]); } catch(e) {}
+                    try { await this.pool.query(`UPDATE ${DB_SCHEMA}.whatsapp_config SET phone_number = $1 WHERE organization_id = $2`, [extra.phone_number, actualOrgId]); } catch(e) {}
                 }
             } else {
-                await this.supabase.from('whatsapp_config').upsert({ organization_id: orgId, status, ...extra, updated_at: new Date().toISOString() }, { onConflict: 'organization_id' });
+                await this.supabase.from('whatsapp_config').upsert({ organization_id: actualOrgId, status, ...extra, updated_at: new Date().toISOString() }, { onConflict: 'organization_id' });
             }
-            console.log(`[DB] ✅ Status upserted to: ${status}`);
+            console.log(`[DB] ✅ Status upserted for Org ${actualOrgId} to: ${status}`);
         } catch (err) {
             console.error('[DB] ❌ Failed to upsert status:', err.message);
         }
