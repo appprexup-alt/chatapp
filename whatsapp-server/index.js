@@ -871,7 +871,8 @@ app.post('/instance/create', async (req, res) => {
 
 app.post('/message/sendText/:instanceName', async (req, res) => {
     const { number, text } = req.body;
-    const sock = sessions.get(ORG_ID);
+    let sock = sessions.get(ORG_ID);
+    if (!sock && sessions.size > 0) sock = sessions.values().next().value;
     if (!sock) return res.status(500).json({ error: 'Instance not ready' });
 
     try {
@@ -888,7 +889,8 @@ app.post('/message/sendText/:instanceName', async (req, res) => {
 
 app.post('/message/sendMedia/:instanceName', async (req, res) => {
     const { number, media, mediatype, caption, fileName } = req.body;
-    const sock = sessions.get(ORG_ID);
+    let sock = sessions.get(ORG_ID);
+    if (!sock && sessions.size > 0) sock = sessions.values().next().value;
     if (!sock) return res.status(500).json({ error: 'Instance not ready' });
 
     try {
@@ -910,7 +912,8 @@ app.post('/message/sendMedia/:instanceName', async (req, res) => {
 
 app.post('/message/sendWhatsAppAudio/:instanceName', async (req, res) => {
     const { number, audio } = req.body;
-    const sock = sessions.get(ORG_ID);
+    let sock = sessions.get(ORG_ID);
+    if (!sock && sessions.size > 0) sock = sessions.values().next().value;
     if (!sock) return res.status(500).json({ error: 'Instance not ready' });
     try {
         const cleanNumber = number.replace(/\D/g, '');
