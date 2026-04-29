@@ -321,7 +321,7 @@ async function initWhatsApp(orgId) {
         logger,
         auth: state,
         printQRInTerminal: true,
-        browser: ['Ubuntu', 'Chrome', '20.0.04'],
+        browser: Browsers.ubuntu('Chrome'),
         syncFullHistory: false
     });
 
@@ -494,7 +494,8 @@ async function initWhatsApp(orgId) {
             try {
                 if (!msg.message) continue;
                 const from = msg.key.remoteJid;
-                if (!from || from === 'status@broadcast' || from.endsWith('@g.us') || from.endsWith('@newsletter')) {
+                // STRICT: Filter out Groups (@g.us), Channels (@newsletter), Statuses, or mixed IDs
+                if (!from || from === 'status@broadcast' || from.endsWith('@g.us') || from.endsWith('@newsletter') || msg.key.participant || msg.participant || from.includes('-')) {
                     continue;
                 }
 
