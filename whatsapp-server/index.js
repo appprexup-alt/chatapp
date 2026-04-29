@@ -500,8 +500,8 @@ async function initWhatsApp(orgId) {
             try {
                 if (!msg.message) continue;
                 const from = msg.key.remoteJid;
-                // STRICT: Filter out Groups (@g.us), Channels (@newsletter), Statuses, or mixed IDs
-                if (!from || from === 'status@broadcast' || from.endsWith('@g.us') || from.endsWith('@newsletter') || msg.key.participant || msg.participant || from.includes('-')) {
+                // STRICT: Filter out Groups (@g.us), Channels (@newsletter), Statuses
+                if (!from || from === 'status@broadcast' || from.endsWith('@g.us') || from.endsWith('@newsletter') || from.includes('-')) {
                     continue;
                 }
 
