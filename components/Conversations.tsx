@@ -29,10 +29,6 @@ const Conversations: React.FC = () => {
     const formatPhone = (phone: string) => {
         if (!phone) return 'Sin número';
         if (phone.includes('status') || phone.includes('status@broadcast')) return 'WhatsApp Status';
-        if (phone.includes('SOLICITAR NUMERO')) {
-            return `⚠️ Sin número (Clic para añadir)`;
-        }
-        if (phone.includes('status')) return 'WhatsApp Status';
         const clean = phone.replace('WA-', '').replace(/\D/g, '');
         if (!clean) return phone;
         return `+${clean}`;

@@ -268,6 +268,20 @@ class DbService {
             console.error('[DB] Error updating lead:', err.message);
         }
     }
+
+    async updateLeadName(leadId, newName) {
+        if (!this.isReady()) return;
+        try {
+            if (this.usePostgres) {
+                await this.pool.query(`UPDATE ${DB_SCHEMA}.leads SET name = $1, updated_at = NOW() WHERE id = $2`, [newName, leadId]);
+            } else {
+                await this.supabase.from('leads').update({ name: newName, updated_at: new Date().toISOString() }).eq('id', leadId);
+            }
+            console.log(`[DB] Lead ${leadId} name updated to: ${newName}`);
+        } catch (err) {
+            console.error('[DB] Error updating lead name:', err.message);
+        }
+    }
 }
 
 const db = new DbService();
@@ -506,8 +520,8 @@ async function initWhatsApp(orgId) {
                         // If still no phone, use the LID number part but mark as SOLICITAR NUMERO
                         if (!phone) {
                             const lidNum = from.split('@')[0].replace(/\D/g, '');
-                            phone = `SOLICITAR NUMERO - LID:${lidNum}`;
-                            console.log(`[Msg] LID unresolved, using placeholder: ${phone}`);
+                            phone = lidNum;
+                            console.log(`[Msg] LID unresolved, using raw identifier: ${phone}`);
                         }
                     }
                 } else {
@@ -525,12 +539,15 @@ async function initWhatsApp(orgId) {
                 if (!lead && !isMe) {
                     const { data: newLead } = await db.createLead(msg.pushName || phone, phone, orgId);
                     lead = newLead;
+                } else if (lead && msg.pushName && (lead.name === lead.phone || lead.name.includes('SOLICITAR') || lead.name.includes(':') || /^\d+$/.test(lead.name))) {
+                    await db.updateLeadName(lead.id, msg.pushName);
+                    lead.name = msg.pushName;
                 }
 
                 if (!lead) continue;
 
                 // If lead has real phone, use it
-                if (lead.phone && !lead.phone.includes('SOLICITAR')) {
+                if (lead.phone) {
                     phone = lead.phone.replace(/\D/g, '');
                 }
 
