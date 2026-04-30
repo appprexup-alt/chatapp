@@ -806,7 +806,8 @@ app.delete('/db/:table/:id', async (req, res) => {
 
 app.get('/instance/connect/:instanceName', (req, res) => {
     const orgId = req.params.instanceName || ORG_ID;
-    const sock = sessions.get(orgId);
+    let sock = sessions.get(orgId) || sessions.get(ORG_ID);
+    if (!sock && sessions.size > 0) sock = sessions.values().next().value;
     
     if (lastQR) {
         res.json({ qrcode: { base64: lastQR }, code: lastQR });
@@ -818,7 +819,10 @@ app.get('/instance/connect/:instanceName', (req, res) => {
 });
 
 app.get('/instance/connectionState/:instanceName', async (req, res) => {
-    const sock = sessions.get(ORG_ID);
+    const orgId = req.params.instanceName || ORG_ID;
+    let sock = sessions.get(orgId) || sessions.get(ORG_ID);
+    if (!sock && sessions.size > 0) sock = sessions.values().next().value;
+
     if (sock?.user) res.json({ instance: { state: 'open' } });
     else res.json({ instance: { state: 'close' } });
 });
@@ -894,25 +898,38 @@ app.delete('/instance/logout/:instanceName', async (req, res) => {
 app.delete('/instance/delete/:instanceName', async (req, res) => {
     const orgId = req.params.instanceName || ORG_ID;
     console.log(`[Instance] Full reset/delete requested for: ${orgId}`);
+    
+    // Clear custom org session
     const sock = sessions.get(orgId);
     if (sock) {
         try { await sock.logout(); } catch (e) { }
         sessions.delete(orgId);
     }
+
+    // Clear default org session
+    const defaultSock = sessions.get(ORG_ID);
+    if (defaultSock) {
+        try { await defaultSock.logout(); } catch (e) { }
+        sessions.delete(ORG_ID);
+    }
+
+    // Wipe both auth directories
     const sessionDir = path.join(__dirname, 'auth', orgId);
+    const defaultDir = path.join(__dirname, 'auth', ORG_ID);
     try {
-        if (fs.existsSync(sessionDir)) {
-            fs.rmSync(sessionDir, { recursive: true, force: true });
-            console.log(`[Instance] Deleted session dir: ${sessionDir}`);
-        }
+        if (fs.existsSync(sessionDir)) fs.rmSync(sessionDir, { recursive: true, force: true });
+        if (fs.existsSync(defaultDir)) fs.rmSync(defaultDir, { recursive: true, force: true });
+        console.log(`[Instance] Deleted auth directories.`);
     } catch (e) { 
         console.error(`[Instance] Error deleting dir: ${e.message}`);
     }
+    
     lastQR = null;
-    // Short delay to ensure FS is ready
+    
     setTimeout(() => {
-        initWhatsApp(orgId).catch(console.error);
+        initWhatsApp(ORG_ID).catch(console.error);
     }, 1000);
+    
     res.json({ success: true, message: 'Instancia reiniciada desde cero.' });
 });
 
